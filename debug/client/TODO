@@ -1,0 +1,4 @@
+- rd should read any size (batching)
+- save command: memory to file
+- memfill
+- bat files
