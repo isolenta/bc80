@@ -1,0 +1,11 @@
+.obj/**
+*.obj
+*.o
+*.d
+*.yy.c
+*.yy.h
+*.tab.c
+*.tab.h
+bc80/**/*backups/*.zip
+stuff
+debug/tools
