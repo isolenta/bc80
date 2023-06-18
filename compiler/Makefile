@@ -44,11 +44,11 @@ $(OBJDIR)/lexer.yy.c $(OBJDIR)/lexer.yy.h: src/lexer.l
 	@mkdir -p $(dir $@)
 	$(FLEX) --header-file=lexer.yy.h -o $(OBJDIR)/lexer.yy.c src/lexer.l
 
-$(OBJDIR)/%.o: src/%.c src/%.d
+$(OBJDIR)/%.o: src/%.c $(OBJDIR)/%.d
 	@mkdir -p $(dir $@)
 	gcc $(CFLAGS) -c $< -o $@
 
-$(OBJDIR)/src/%.d: src/%.c
+$(OBJDIR)/%.d: src/%.c
 	@mkdir -p $(dir $@)
 	gcc $(CFLAGS) -MM $^ -MF $@
 

@@ -1,5 +1,5 @@
 /*
-  Assembler for z80 target
+  Assembler for Z80 CPU target
 */
 
 #include <stdio.h>
@@ -17,38 +17,19 @@
 #include "filesystem.h"
 
 static void print_usage(char *cmd) {
-  printf("Assembler for Z80 CPU target. Produces raw binary file.\n\n"
+  printf("Assembler for Z80 CPU target.\n\n"
          "usage: %s [options] <input file>\n\n"
          "options:\n"
-         "  -v              be verbose\n"
          "  -h              this help\n"
          "  -o filename     name of target file (will use input file name if omitted)\n"
          "  -Ipath          add directory to include path list (for preprocessor #include directive search)\n"
-         "  -Dkey[=value]   define symbol for preprocessor\n",
+         "  -Dkey[=value]   define symbol for preprocessor\n"
+         "  -t <target>     set output file target type. Can be one of:\n"
+         "     raw (default)       raw binary rendered from absolute offset specified by ORG directive.\n"
+         "                         Source file can contain only single section.\n"
+         "     object              ELF object file. Source file can define multiple sections.\n",
          cmd
   );
-}
-
-static void do_work(char *source,
-                    hashmap *defineopts,
-                    dynarray *includeopts,
-                    char *infile,
-                    char *outfile,
-                    bool verbose) {
-  dynarray *parse;
-
-  dynarray_cell *dc = NULL;
-
-  parse = NULL;
-
-  parse_string(&parse, includeopts, source, infile);
-
-  if (verbose) {
-    printf("PARSE TREE:\n\n");
-    parse_print(parse);
-  }
-
-  compile(parse, defineopts, includeopts, outfile);
 }
 
 int main(int argc, char **argv) {
@@ -56,9 +37,9 @@ int main(int argc, char **argv) {
   dynarray *includeopts = NULL;
   hashmap *defineopts = NULL;
   dynarray_cell *dc = NULL;
-  bool verbose = false;
   char *infile = NULL;
   char *outfile = NULL;
+  int target = ASM_TARGET_RAW;
   int ret;
   size_t sz;
   FILE *fin = NULL;
@@ -68,12 +49,8 @@ int main(int argc, char **argv) {
 
   opterr = 0;
 
-  while ((optflag = getopt(argc, argv, "vhD:I:o:")) != -1) {
+  while ((optflag = getopt(argc, argv, "vhD:I:o:t:")) != -1) {
     switch (optflag) {
-      case 'v':
-        verbose = true;
-        break;
-
       case 'D': {
         dynarray *kvparts = split_string_sep(optarg, '=', true);
         hashmap_search(defineopts, dinitial(kvparts), HASHMAP_INSERT,
@@ -87,6 +64,17 @@ int main(int argc, char **argv) {
 
       case 'o':
         outfile = strdup(optarg);
+        break;
+
+      case 't':
+        if (strcasecmp(optarg, "raw") == 0)
+          target = ASM_TARGET_RAW;
+        else if (strcasecmp(optarg, "object") == 0)
+          target = ASM_TARGET_ELF;
+        else {
+          fprintf(stderr, "target must be one of 'raw', 'object'\n");
+          return 1;
+        }
         break;
 
       case 'h':
@@ -108,24 +96,7 @@ int main(int argc, char **argv) {
 
   if (outfile == NULL) {
     // evaluate output filename from input one
-    outfile = fs_replace_suffix(infile, "obj");
-  }
-
-  if (verbose) {
-    hashmap_scan *scan = NULL;
-    hashmap_entry *defentry = NULL;
-
-    printf("source: %s\n", infile);
-    printf("destination: %s\n", outfile);
-
-    printf("defines:\n");
-    scan = hashmap_scan_init(defineopts);
-    while ((defentry = hashmap_scan_next(scan)) != NULL)
-      printf(" %s => %s\n", defentry->key, (char *)defentry->value);
-
-    printf("include search paths:\n");
-    foreach(dc, includeopts)
-      printf(" %s\n", (char *)dfirst(dc));
+    outfile = fs_replace_suffix(infile, (target == ASM_TARGET_RAW) ? "bin" : "obj");
   }
 
   // actual work below
@@ -149,7 +120,9 @@ int main(int argc, char **argv) {
     goto out;
   }
 
-  do_work(source, defineopts, includeopts, infile, outfile, verbose);
+  dynarray *parse = NULL;
+  parse_string(&parse, includeopts, source, infile);
+  compile(parse, defineopts, includeopts, outfile, target);
 
 out:
   if (fin)

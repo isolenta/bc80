@@ -2,6 +2,10 @@
 
 #include "compile.h"
 
+static inline section_ctx_t *get_current_section(compile_ctx_t *ctx) {
+  return (section_ctx_t *)dfirst(dynarray_nth_cell(ctx->sections, ctx->curr_section_id));
+}
+
 extern void render_byte(compile_ctx_t *ctx, char b);
 extern void render_2bytes(compile_ctx_t *ctx, char b1, char b2);
 extern void render_3bytes(compile_ctx_t *ctx, char b1, char b2, char b3);

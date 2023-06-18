@@ -320,6 +320,7 @@ static bool get_arg_condition(parse_node *node, int *cond) {
 
 static bool get_arg_reladdr(compile_ctx_t *ctx, parse_node *node, int *reladdr, int imm_pos) {
   int lsb, msb;
+  section_ctx_t *section = get_current_section(ctx);
 
   if (node->type == NODE_LITERAL) {
     LITERAL *l = (LITERAL *)node;
@@ -328,7 +329,7 @@ static bool get_arg_reladdr(compile_ctx_t *ctx, parse_node *node, int *reladdr, 
 
     if (l->kind == INT) {
       uint16_t addr = l->ival;
-      *reladdr = ctx->curr_pc - addr;
+      *reladdr = section->curr_pc - addr;
       if ((*reladdr >= -128) && (*reladdr <= 127))
         return true;
       else
@@ -338,7 +339,7 @@ static bool get_arg_reladdr(compile_ctx_t *ctx, parse_node *node, int *reladdr, 
     // will patch operand position with literal value at 2nd pass
 
     *reladdr = 0;
-    register_fwd_lookup(ctx, node, imm_pos, 1, false, true, ctx->curr_pc);
+    register_fwd_lookup(ctx, node, imm_pos, 1, false, true, section->curr_pc);
 
     return true;
   }
@@ -385,6 +386,7 @@ static bool get_arg_rstaddr(parse_node *node, int *rstcode) {
 }
 
 void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
+  section_ctx_t *section = get_current_section(ctx);
 
   #define ERR_UNEXPECTED_ARGUMENT(n) do { \
     report_error(ctx, "[%s@%d] unexpected argument %d\n", __FILE__, __LINE__, (n)); \
@@ -442,11 +444,11 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_byte(ctx, 0x88 | opc);
         else if (get_arg_halfindex(arg2, &opc, &opc2))
           render_2bytes(ctx, 0xDD | (opc << 5), 0x8C | opc2);
-        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, ctx->curr_pc + 2) && !is_ref)
+        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc + 2) && !is_ref)
           render_2bytes(ctx, 0xCE, opc);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_byte(ctx, 0x8E);
-        else if (get_arg_index_offset8(ctx, arg2, &opc, &opc2, ctx->curr_pc + 2))
+        else if (get_arg_index_offset8(ctx, arg2, &opc, &opc2, section->curr_pc + 2))
           render_3bytes(ctx, 0xDD | (opc << 5), 0x8E, opc2);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -468,11 +470,11 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_byte(ctx, 0x80 | opc);
         else if (get_arg_halfindex(arg2, &opc, &opc2))
           render_2bytes(ctx, 0xDD | (opc << 5), 0x84 | opc2);
-        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, ctx->curr_pc + 2) && !is_ref)
+        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc + 2) && !is_ref)
           render_2bytes(ctx, 0xC6, opc);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_byte(ctx, 0x86);
-        else if (get_arg_index_offset8(ctx, arg2, &opc, &opc2, ctx->curr_pc + 2))
+        else if (get_arg_index_offset8(ctx, arg2, &opc, &opc2, section->curr_pc + 2))
           render_3bytes(ctx, 0xDD | (opc << 5), 0x86, opc2);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -498,11 +500,11 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_byte(ctx, 0xA0 | opc);
       else if (get_arg_halfindex(arg1, &opc, &opc2))
         render_2bytes(ctx, 0xDD | (opc << 5), 0xA4 | opc2);
-      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, ctx->curr_pc + 2) && !is_ref)
+      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc + 2) && !is_ref)
         render_2bytes(ctx, 0xE6, opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0xA6);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_3bytes(ctx, 0xDD | (opc << 5), 0xA6, opc2);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -519,7 +521,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_2bytes(ctx, 0xCB, 0x40 | (b << 3) | opc);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_2bytes(ctx, 0xCB, 0x46 | (b << 3));
-        else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+        else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
           render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x40 | (b << 3));
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -534,7 +536,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
       if (num_args == 1) {
         int lsb, msb;
 
-        if (get_arg_16imm(ctx, arg1, &lsb, &msb, &is_ref, ctx->curr_pc + 1) && !is_ref)
+        if (get_arg_16imm(ctx, arg1, &lsb, &msb, &is_ref, section->curr_pc + 1) && !is_ref)
           render_3bytes(ctx, 0xCD, lsb, msb);
         else
           ERR_UNEXPECTED_ARGUMENT(1);
@@ -542,7 +544,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         int cond, lsb, msb;
 
         if (get_arg_condition(arg1, &cond)) {
-          if (get_arg_16imm(ctx, arg2, &lsb, &msb, &is_ref, ctx->curr_pc + 1) && !is_ref)
+          if (get_arg_16imm(ctx, arg2, &lsb, &msb, &is_ref, section->curr_pc + 1) && !is_ref)
             render_3bytes(ctx, 0xC4 | (cond << 3), lsb, msb);
           else
             ERR_UNEXPECTED_ARGUMENT(2);
@@ -564,11 +566,11 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_byte(ctx, 0xB8 | opc);
       else if (get_arg_halfindex(arg1, &opc, &opc2))
         render_2bytes(ctx, 0xDD | (opc << 5), 0xBC | opc2);
-      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, ctx->curr_pc + 2) && !is_ref)
+      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc + 2) && !is_ref)
         render_2bytes(ctx, 0xFE, opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0xBE);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_3bytes(ctx, 0xDD | (opc << 5), 0xBE, opc2);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -613,7 +615,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_2bytes(ctx, 0xDD | (opc << 5), 0x25 | (opc2 << 3));
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0x35);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_3bytes(ctx, 0xDD | (opc << 5), 0x35, opc2);
       else if (get_arg_qreg16(arg1, &opc2, &is_ref) && !is_ref)
         render_byte(ctx, 0x0B | (opc2 << 4));
@@ -631,7 +633,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case DJNZ: {
-      if (get_arg_reladdr(ctx, arg1, &opc, ctx->curr_pc + 2))
+      if (get_arg_reladdr(ctx, arg1, &opc, section->curr_pc + 2))
         render_2bytes(ctx, 0x10, opc);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -694,7 +696,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
 
     case IN: {
       if (get_arg_accum(arg1)) {
-        if (get_arg_8imm(ctx, arg2, &opc, &is_ref, ctx->curr_pc + 2) && is_ref)
+        if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc + 2) && is_ref)
           render_2bytes(ctx, 0xDB, opc);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -722,7 +724,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_2bytes(ctx, 0xDD | (opc << 5), 0x24 | (opc2 << 3));
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0x34);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_3bytes(ctx, 0xDD | (opc << 5), 0x34, opc2);
       else if (get_arg_qreg16(arg1, &opc2, &is_ref) && !is_ref)
         render_byte(ctx, 0x03 | (opc2 << 4));
@@ -758,7 +760,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
       if (num_args == 1) {
         int lsb, msb;
 
-        if (get_arg_16imm(ctx, arg1, &lsb, &msb, &is_ref, ctx->curr_pc + 1) && !is_ref)
+        if (get_arg_16imm(ctx, arg1, &lsb, &msb, &is_ref, section->curr_pc + 1) && !is_ref)
           render_3bytes(ctx, 0xC3, lsb, msb);
         else if (get_arg_hl(arg1, &is_ref) && is_ref)
           render_byte(ctx, 0xE9);
@@ -770,7 +772,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         int lsb, msb, cond;
 
         if (get_arg_condition(arg1, &cond)) {
-          if (get_arg_16imm(ctx, arg2, &lsb, &msb, &is_ref, ctx->curr_pc + 1) && !is_ref)
+          if (get_arg_16imm(ctx, arg2, &lsb, &msb, &is_ref, section->curr_pc + 1) && !is_ref)
             render_3bytes(ctx, 0xC2 | (cond << 3), lsb, msb);
           else
             ERR_UNEXPECTED_ARGUMENT(2);
@@ -786,14 +788,14 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
       if (num_args == 1) {
         int reladdr;
 
-        if (get_arg_reladdr(ctx, arg1, &reladdr, ctx->curr_pc + 1))
+        if (get_arg_reladdr(ctx, arg1, &reladdr, section->curr_pc + 1))
           render_2bytes(ctx, 0x18, reladdr);
         else
           ERR_UNEXPECTED_ARGUMENT(1);
       } else if (num_args == 2) {
         int reladdr, cond;
 
-        if (get_arg_reladdr(ctx, arg2, &reladdr, ctx->curr_pc + 1)) {
+        if (get_arg_reladdr(ctx, arg2, &reladdr, section->curr_pc + 1)) {
           if (get_arg_condition(arg1, &cond) && (cond == COND_NZ))
             render_2bytes(ctx, 0x20, reladdr);
           else if (get_arg_condition(arg1, &cond) && (cond == COND_Z))
@@ -820,7 +822,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_byte(ctx, 0x0A);
         else if ((opc == REG_A) && get_arg_qreg16(arg2, &opc2, &is_ref) && is_ref && (opc2 == REG_DE))
           render_byte(ctx, 0x1A);
-        else if ((opc == REG_A) && get_arg_16imm(ctx, arg2, &opc3, &opc2, &is_ref, ctx->curr_pc + 1) && is_ref)
+        else if ((opc == REG_A) && get_arg_16imm(ctx, arg2, &opc3, &opc2, &is_ref, section->curr_pc + 1) && is_ref)
           render_3bytes(ctx, 0x3A, opc3, opc2);
         else if ((opc == REG_A) && get_arg_intreg(arg2))
           render_2bytes(ctx, 0xED, 0x57);
@@ -830,13 +832,13 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_byte(ctx, 0x40 | (opc << 3) | opc2);
         else if (get_arg_halfindex(arg2, &i, &b))
           render_2bytes(ctx, 0xDD | (i << 5), 0x44 | (opc << 3) | b);
-        else if (get_arg_8imm(ctx, arg2, &opc2, &is_ref, ctx->curr_pc + 2) && !is_ref)
+        else if (get_arg_8imm(ctx, arg2, &opc2, &is_ref, section->curr_pc + 2) && !is_ref)
           render_2bytes(ctx, 0x06 | (opc << 3), opc2);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_byte(ctx, 0x46 | (opc << 3));
-        else if (get_arg_index_offset8(ctx, arg2, &i, &opc2, ctx->curr_pc + 2))
+        else if (get_arg_index_offset8(ctx, arg2, &i, &opc2, section->curr_pc + 2))
           render_3bytes(ctx, 0xDD | (i << 5), 0x46 | (opc << 3), opc2);
-        else if ((opc == REG_A) && (get_arg_16imm(ctx, arg2, &opc, &opc2, &is_ref, ctx->curr_pc + 1) && is_ref))
+        else if ((opc == REG_A) && (get_arg_16imm(ctx, arg2, &opc, &opc2, &is_ref, section->curr_pc + 1) && is_ref))
           render_3bytes(ctx, 0x3A, opc, opc2);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -860,22 +862,22 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
       } else if (get_arg_hl(arg1, &is_ref) && is_ref) {
         if (get_arg_gpr8(arg2, &opc, &is_ref) && !is_ref)
           render_byte(ctx, 0x70 | opc);
-        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, ctx->curr_pc + 1) && !is_ref)
+        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc + 1) && !is_ref)
           render_2bytes(ctx, 0x36, opc);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else if (get_arg_hl(arg1, &is_ref) && !is_ref) {
-        if (get_arg_16imm(ctx, arg2, &opc, &opc2, &is_ref, ctx->curr_pc + 1) && is_ref)
+        if (get_arg_16imm(ctx, arg2, &opc, &opc2, &is_ref, section->curr_pc + 1) && is_ref)
           render_3bytes(ctx, 0x2A, opc, opc2);
-        else if (get_arg_16imm(ctx, arg2, &opc, &opc2, &is_ref, ctx->curr_pc + 1) && !is_ref)
+        else if (get_arg_16imm(ctx, arg2, &opc, &opc2, &is_ref, section->curr_pc + 1) && !is_ref)
           render_3bytes(ctx, 0x01 | (REG_HL << 4), opc, opc2);
         else {
           ERR_UNEXPECTED_ARGUMENT(2);
         }
-      } else if (get_arg_index_offset8(ctx, arg1, &i, &opc, ctx->curr_pc + 2)) {
+      } else if (get_arg_index_offset8(ctx, arg1, &i, &opc, section->curr_pc + 2)) {
         if (get_arg_gpr8(arg2, &opc2, &is_ref) && !is_ref)
           render_3bytes(ctx, 0xDD | (i << 5), 0x70 | opc2, opc);
-        else if (get_arg_8imm(ctx, arg2, &opc2, &is_ref, ctx->curr_pc + 3) && !is_ref)
+        else if (get_arg_8imm(ctx, arg2, &opc2, &is_ref, section->curr_pc + 3) && !is_ref)
           render_4bytes(ctx, 0xDD | (i << 5), 0x36, opc, opc2);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -915,16 +917,16 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_byte(ctx, 0xF9);
         else if ((opc == REG_SP) && get_arg_index(arg2, &opc2, &is_ref) && !is_ref)
           render_2bytes(ctx, 0xDD | (opc2 << 5), 0xF9);
-        else if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &is_ref, ctx->curr_pc + 1) && !is_ref)
+        else if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &is_ref, section->curr_pc + 1) && !is_ref)
           render_3bytes(ctx, 0x01 | (opc << 4), opc2, opc3);
-        else if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &is_ref, ctx->curr_pc + 2) && is_ref)
+        else if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &is_ref, section->curr_pc + 2) && is_ref)
           render_4bytes(ctx, 0xED, 0x4B | (opc << 4), opc2, opc3);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else if (get_arg_index(arg1, &opc, &is_ref) && !is_ref) {
-        if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &is_ref, ctx->curr_pc + 2) && !is_ref)
+        if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &is_ref, section->curr_pc + 2) && !is_ref)
           render_4bytes(ctx, 0xDD | (opc << 5), 0x21, opc2, opc3);
-        else if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &is_ref, ctx->curr_pc + 2) && is_ref)
+        else if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &is_ref, section->curr_pc + 2) && is_ref)
           render_4bytes(ctx, 0xDD | (opc << 5), 0x2A, opc2, opc3);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -969,11 +971,11 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_byte(ctx, 0xB0 | opc);
       else if (get_arg_halfindex(arg1, &opc, &opc2))
         render_2bytes(ctx, 0xDD | (opc << 5), 0xB4 | opc2);
-      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, ctx->curr_pc + 1) && !is_ref)
+      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc + 1) && !is_ref)
         render_2bytes(ctx, 0xF6, opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0xB6);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_3bytes(ctx, 0xDD | (opc << 5), 0xB6, opc2);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -982,7 +984,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case OUT: {
-      if (get_arg_8imm(ctx, arg1, &opc, &is_ref, ctx->curr_pc + 1) && is_ref) {
+      if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc + 1) && is_ref) {
         if (get_arg_accum(arg2))
           render_2bytes(ctx, 0xD3, opc);
         else
@@ -1051,7 +1053,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_2bytes(ctx, 0xCB, 0x80 | (opc << 3) | opc2);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_2bytes(ctx, 0xCB, 0x86 | (opc << 3));
-        else if (get_arg_index_offset8(ctx, arg2, &opc2, &opc3, ctx->curr_pc + 2))
+        else if (get_arg_index_offset8(ctx, arg2, &opc2, &opc3, section->curr_pc + 2))
           render_4bytes(ctx, 0xDD | (opc2 << 5), 0xCB, opc3, 0x86 | (opc << 3));
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -1095,7 +1097,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_2bytes(ctx, 0xCB, 0x10 | opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x16);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x16);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -1113,7 +1115,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_2bytes(ctx, 0xCB, 0x00 | opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x06);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x06);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -1136,7 +1138,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_2bytes(ctx, 0xCB, 0x18 | opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x1E);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x1E);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -1154,7 +1156,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_2bytes(ctx, 0xCB, 0x08 | opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x0E);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x0E);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -1182,11 +1184,11 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_byte(ctx, 0x98 | opc);
         else if (get_arg_halfindex(arg2, &opc, &opc2))
           render_2bytes(ctx, 0xDD | (opc << 5), 0x9C | opc2);
-        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, ctx->curr_pc + 1) && !is_ref)
+        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc + 1) && !is_ref)
           render_2bytes(ctx, 0xDE, opc);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_byte(ctx, 0x9E);
-        else if (get_arg_index_offset8(ctx, arg2, &opc, &opc2, ctx->curr_pc + 2))
+        else if (get_arg_index_offset8(ctx, arg2, &opc, &opc2, section->curr_pc + 2))
           render_3bytes(ctx, 0xDD | (opc << 5), 0x9E, opc2);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -1215,7 +1217,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_2bytes(ctx, 0xCB, 0xC0 | (opc << 3) | opc2);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_2bytes(ctx, 0xCB, 0xC6 | (opc << 3));
-        else if (get_arg_index_offset8(ctx, arg2, &opc2, &opc3, ctx->curr_pc + 2))
+        else if (get_arg_index_offset8(ctx, arg2, &opc2, &opc3, section->curr_pc + 2))
           render_4bytes(ctx, 0xDD | (opc2 << 5), 0xCB, opc3, 0xC6 | (opc << 3));
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -1231,7 +1233,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_2bytes(ctx, 0xCB, 0x20 | opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x26);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x26);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -1244,7 +1246,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_2bytes(ctx, 0xCB, 0x28 | opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x2E);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x2E);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -1257,7 +1259,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_2bytes(ctx, 0xCB, 0x30 | opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x36);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x36);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -1270,7 +1272,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_2bytes(ctx, 0xCB, 0x38 | opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x3E);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x3E);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -1283,11 +1285,11 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_byte(ctx, 0x90 | opc);
       else if (get_arg_halfindex(arg1, &opc, &opc2))
         render_2bytes(ctx, 0xDD | (opc << 5), 0x94 | opc2);
-      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, ctx->curr_pc + 1) && !is_ref)
+      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc + 1) && !is_ref)
         render_2bytes(ctx, 0xD6, opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0x96);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_3bytes(ctx, 0xDD | (opc << 5), 0x96, opc2);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -1300,11 +1302,11 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
         render_byte(ctx, 0xA8 | opc);
       else if (get_arg_halfindex(arg1, &opc, &opc2))
         render_2bytes(ctx, 0xDD | (opc << 5), 0xAC | opc2);
-      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, ctx->curr_pc + 1) && !is_ref)
+      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc + 1) && !is_ref)
         render_2bytes(ctx, 0xEE, opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0xAE);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, ctx->curr_pc + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_3bytes(ctx, 0xDD | (opc << 5), 0xAE, opc2);
       else
         ERR_UNEXPECTED_ARGUMENT(1);

@@ -17,7 +17,9 @@ static parse_node *eval_literal(compile_ctx_t *ctx, parse_node *node, bool do_ev
 
   // replace DOLLAR-kind literal with current position value
   if (do_eval_dollar && l->kind == DOLLAR) {
-    l->ival = ctx->curr_pc;
+    section_ctx_t *section = get_current_section(ctx);
+
+    l->ival = section->curr_pc;
     l->kind = INT;
   }
 
@@ -192,7 +194,7 @@ static hashmap *make_symtab(hashmap *defineopts) {
   return symtab;
 }
 
-void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *outfile) {
+void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *outfile, int target) {
   dynarray_cell *dc = NULL;
 
   compile_ctx_t compile_ctx;
@@ -201,6 +203,8 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
 
   compile_ctx.symtab = make_symtab(defineopts);
   compile_ctx.verbose_error = true;
+  compile_ctx.target = target;
+
   render_start(&compile_ctx);
 
   // ==================================================================================================
@@ -229,7 +233,9 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
       if (org_val->type == NODE_LITERAL) {
         LITERAL *l = (LITERAL *)org_val;
         if (l->kind == INT) {
-          compile_ctx.curr_pc = l->ival;
+          section_ctx_t *section = get_current_section(&compile_ctx);
+
+          section->curr_pc = l->ival;
           render_reorg(&compile_ctx);
         } else {
           report_error(&compile_ctx, "value must be an integer (got %s)\n", get_literal_kind(l));
@@ -276,9 +282,11 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
 
         // remember position for further patching in case of unresolved filler identifier
         if (filler->type != NODE_LITERAL) {
+          section_ctx_t *section = get_current_section(&compile_ctx);
+
           register_fwd_lookup(&compile_ctx,
                                filler,
-                               compile_ctx.curr_pc - ((LITERAL *)nrep)->ival,
+                               section->curr_pc - ((LITERAL *)nrep)->ival,
                                ((LITERAL *)nrep)->ival,
                                false,
                                false,
@@ -331,12 +339,14 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
     }
 
     if (node->type == NODE_LABEL) {
+      section_ctx_t *section = get_current_section(&compile_ctx);
+
       // actually label definition is just alias of current offset in the output stream
       LABEL *label = (LABEL *)node;
 
       LITERAL *cur_offset = make_node(LITERAL, 0);
       cur_offset->kind = INT;
-      cur_offset->ival = compile_ctx.curr_pc;
+      cur_offset->ival = section->curr_pc;
 
       hashmap_search(compile_ctx.symtab, label->name->name, HASHMAP_INSERT, cur_offset);
     }
