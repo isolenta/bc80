@@ -54,6 +54,7 @@ intnum  ({decnum}|{hexnum}|{binnum})
 (?i:ds|defs)  { return T_DS; }
 (?i:incbin)   { return T_INCBIN; }
 (?i:include)  { return T_INCLUDE; }
+(?i:section)  { return T_SECTION; }
 
 
 {id}      {

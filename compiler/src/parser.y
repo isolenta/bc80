@@ -30,7 +30,7 @@
 %token <str> T_ID T_STR
 %token <ival> T_INT T_DOLLAR
 %token T_LPAR T_RPAR T_MINUS T_PLUS T_MUL T_DIV T_COMMA T_COLON T_ORG T_EQU T_END T_DB T_DM T_DW T_DS
-%token T_INCBIN T_INCLUDE T_NOT T_AND T_OR T_NL
+%token T_INCBIN T_INCLUDE T_NOT T_AND T_OR T_NL T_SECTION
 
 %type <node> program cstmt stmt label id str integer dollar simple_expr unary_expr expr exprlist
 
@@ -200,7 +200,6 @@ label
           LABEL *l = make_node(LABEL, @1.first_line);
           l->name = (ID *)$1;
           *statements = dynarray_append_ptr(*statements, l);
-          // print_node((parse_node *)l); printf("\n");
         }
 
 stmt
@@ -209,25 +208,21 @@ stmt
         ORG *l = make_node(ORG, @2.first_line);
         l->value = (parse_node *)$2;
         *statements = dynarray_append_ptr(*statements, l);
-        // print_node((parse_node *)l); printf("\n");
       }
       | T_END {
         END *l = make_node(END, @1.first_line);
         *statements = dynarray_append_ptr(*statements, l);
-        // print_node((parse_node *)l); printf("\n");
       }
       | id T_EQU expr {
         EQU *l = make_node(EQU, @1.first_line);
         l->name = (ID *)$1;
         l->value = (EXPR *)$3;
         *statements = dynarray_append_ptr(*statements, l);
-        // print_node((parse_node *)l); printf("\n");
       }
       | T_INCBIN str {
         INCBIN *l = make_node(INCBIN, @1.first_line);
         l->filename = (LITERAL *)$2;
         *statements = dynarray_append_ptr(*statements, l);
-        // print_node((parse_node *)l); printf("\n");
       }
       | T_INCLUDE str {
         LITERAL *filename = (LITERAL *)$2;
@@ -238,42 +233,41 @@ stmt
         l->kind = DEFKIND_DB;
         l->values = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
-        // print_node((parse_node *)l); printf("\n");
       }
       | T_DM exprlist {
         DEF *l = make_node(DEF, @1.first_line);
         l->kind = DEFKIND_DM;
         l->values = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
-        // print_node((parse_node *)l); printf("\n");
       }
       | T_DW exprlist {
         DEF *l = make_node(DEF, @1.first_line);
         l->kind = DEFKIND_DW;
         l->values = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
-        // print_node((parse_node *)l); printf("\n");
       }
       | T_DS exprlist {
         DEF *l = make_node(DEF, @1.first_line);
         l->kind = DEFKIND_DS;
         l->values = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
-        // print_node((parse_node *)l); printf("\n");
+      }
+      | T_SECTION exprlist {
+        SECTION *l = make_node(SECTION, @1.first_line);
+        l->args = (LIST *)$2;
+        *statements = dynarray_append_ptr(*statements, l);
       }
       | id exprlist {
         INSTR *l = make_node(INSTR, @1.first_line);
         l->name = (ID *)$1;
         l->args = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
-        // print_node((parse_node *)l); printf("\n");
       }
       | id {
         INSTR *l = make_node(INSTR, @1.first_line);
         l->name = (ID *)$1;
         l->args = NULL;
         *statements = dynarray_append_ptr(*statements, l);
-        // print_node((parse_node *)l); printf("\n");
       }
       ;
 

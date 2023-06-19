@@ -225,6 +225,73 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
       break;
     }
 
+    if (node->type == NODE_SECTION) {
+      // syntax: section name[,address[,filler]]
+      SECTION *node_sect = (SECTION *)node;
+      section_ctx_t *curr_section = get_current_section(&compile_ctx);
+      dynarray_cell *dc;
+      bool found = false;
+
+      if (dynarray_length(node_sect->args->list) == 0)
+        report_error(&compile_ctx, "'section' directive requires at least one argument\n");
+
+      LITERAL *l = (LITERAL *)expr_eval(&compile_ctx, dinitial(node_sect->args->list), true);
+      if (l->kind != STR)
+        report_error(&compile_ctx, "section name must be a string\n");
+
+      char *name = l->strval;
+
+      // requesting current section is noop
+      if (strcmp(name, curr_section->name) != 0) {
+        // check section existance
+        foreach (dc, compile_ctx.sections) {
+          section_ctx_t *section = (section_ctx_t *)dfirst(dc);
+
+          if (strcmp(name, section->name) == 0) {
+            // requesting existing section is error
+            bool old_v = compile_ctx.verbose_error;
+            compile_ctx.verbose_error = false;
+            report_error(&compile_ctx, "section '%s' already exists\n", name);
+            compile_ctx.verbose_error = old_v;
+          }
+        }
+
+        // by default new section seamless continues the current one
+        int address = curr_section->curr_pc;
+
+        if (dynarray_length(node_sect->args->list) > 1) {
+          l = (LITERAL *)expr_eval(&compile_ctx, dfirst(dynarray_nth_cell(node_sect->args->list, 1)), true);
+          if (l->kind != INT)
+            report_error(&compile_ctx, "section address must be an integer\n");
+
+          address = l->ival;
+        }
+
+        // by default new section's filler is zero
+        uint8_t filler = 0;
+        if (dynarray_length(node_sect->args->list) > 2) {
+          l = (LITERAL *)expr_eval(&compile_ctx, dfirst(dynarray_nth_cell(node_sect->args->list, 2)), true);
+          if (l->kind != INT)
+            report_error(&compile_ctx, "section filler must be an integer\n");
+
+          filler = (uint8_t)(l->ival & 0xff);
+        }
+
+        // create a new section
+        section_ctx_t *new_sect = (section_ctx_t *)malloc(sizeof(section_ctx_t));
+
+        new_sect->start = new_sect->curr_pc = address;
+        new_sect->filler = filler;
+        new_sect->name = strdup(name);
+        new_sect->content = buffer_init();
+
+        compile_ctx.sections = dynarray_append_ptr(compile_ctx.sections, new_sect);
+
+        // make it current
+        compile_ctx.curr_section_id = dynarray_length(compile_ctx.sections) - 1;
+      }
+    }
+
     if (node->type == NODE_ORG) {
       ORG *org = (ORG *)node;
 
@@ -234,6 +301,14 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
         LITERAL *l = (LITERAL *)org_val;
         if (l->kind == INT) {
           section_ctx_t *section = get_current_section(&compile_ctx);
+
+          if (l->ival < section->start) {
+            bool old_v = compile_ctx.verbose_error;
+            compile_ctx.verbose_error = false;
+            report_error(&compile_ctx, "can't set ORG to %04xh because it's below section start address %04xh\n",
+              l->ival, section->start);
+            compile_ctx.verbose_error = old_v;
+          }
 
           section->curr_pc = l->ival;
           render_reorg(&compile_ctx);
@@ -453,6 +528,7 @@ void register_fwd_lookup(compile_ctx_t *ctx,
   patch->negate = negate;
   patch->was_reladdr = was_reladdr;
   patch->curr_pc_reladdr = curr_pc_reladdr;
+  patch->section_id = ctx->curr_section_id;
 
   ctx->patches = dynarray_append_ptr(ctx->patches, patch);
 }

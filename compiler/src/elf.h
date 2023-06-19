@@ -11,7 +11,7 @@ typedef struct {
 #define ELFDATA2LSB 1
     uint8_t       ei_data;
 
-#define EV_CURRENT 1
+#define EIV_CURRENT 1
     uint8_t       ei_version;
 
 #define ELFOSABI_NONE 0
@@ -27,7 +27,6 @@ typedef struct {
 
 #define EV_CURRENT 1
     uint32_t      e_version;
-
 
     uint32_t      e_entry;
     uint32_t      e_phoff;

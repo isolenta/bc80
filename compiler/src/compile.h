@@ -7,9 +7,11 @@
 #define ASM_TARGET_ELF 1
 
 typedef struct {
+  uint32_t start;
   uint32_t curr_pc;
   buffer *content;
   char *name;
+  uint8_t filler;
 } section_ctx_t;
 
 typedef struct {
@@ -29,6 +31,7 @@ typedef struct {
   bool negate;
   bool was_reladdr;
   bool curr_pc_reladdr;
+  int section_id;
 } patch_t;
 
 extern parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar);

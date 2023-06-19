@@ -79,8 +79,10 @@ static void buffer_enlarge(buffer *buf, int needed)
   buf->maxlen = newlen;
 }
 
-void buffer_append(buffer *buf, const char *fmt, ...)
+int buffer_append(buffer *buf, const char *fmt, ...)
 {
+  int start = buf->len;
+
   for (;;)
   {
     va_list args;
@@ -96,11 +98,15 @@ void buffer_append(buffer *buf, const char *fmt, ...)
     // Increase the buffer size and try again.
     buffer_enlarge(buf, needed);
   }
+
+  return start;
 }
 
-void buffer_append_binary(buffer *buf, const char *data, int datalen)
+int buffer_append_binary(buffer *buf, const char *data, int datalen)
 {
   assert(buf != NULL);
+
+  int start = buf->len;
 
   // Make more room if needed
   buffer_enlarge(buf, datalen);
@@ -108,9 +114,26 @@ void buffer_append_binary(buffer *buf, const char *data, int datalen)
   // OK, append the data
   memcpy(buf->data + buf->len, data, datalen);
   buf->len += datalen;
+
+  return start;
 }
 
-void buffer_append_char(buffer *buf, char c)
+int buffer_append_char(buffer *buf, char c)
 {
+  int start = buf->len;
   buffer_append_binary(buf, &c, 1);
+  return start;
+}
+
+int buffer_reserve(buffer *buf, int datalen)
+{
+  assert(buf != NULL);
+
+  int start = buf->len;
+
+  // Make more room if needed
+  buffer_enlarge(buf, datalen);
+
+  buf->len += datalen;
+  return start;
 }

@@ -17,6 +17,7 @@ typedef enum parse_type
   NODE_EXPR,
   NODE_ID,
   NODE_LIST,
+  NODE_SECTION,
 } parse_type;
 
 typedef struct {
@@ -117,6 +118,11 @@ typedef struct {
   ID *name;
   LIST *args; // array of expressions
 } INSTR;
+
+typedef struct {
+  parse_type type;
+  LIST *args;
+} SECTION;
 
 extern parse_node *new_node_macro_holder;
 
