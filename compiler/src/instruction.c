@@ -895,15 +895,15 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_byte(ctx, 0x12);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
-      } else if (get_arg_16imm(ctx, arg1, &opc, &opc2, &is_ref, -1) && is_ref) {   // TODO!!!
+      } else if (get_arg_16imm(ctx, arg1, &opc, &opc2, &is_ref, -1) && is_ref) {
         if (get_arg_accum(arg2))
           render_3bytes(ctx, 0x32, opc, opc2);
-        else if (get_arg_qreg16(arg2, &opc3, &is_ref) && !is_ref)
-          render_4bytes(ctx, 0xED, 0x43 | (opc3 << 4), opc, opc2);
         else if (get_arg_hl(arg2, &is_ref) && !is_ref)
           render_3bytes(ctx, 0x22, opc, opc2);
         else if (get_arg_index(arg2, &opc3, &is_ref) && !is_ref)
           render_4bytes(ctx, 0xDD | (opc3 << 5), 0x22, opc, opc2);
+        else if (get_arg_qreg16(arg2, &opc3, &is_ref) && !is_ref)
+          render_4bytes(ctx, 0xED, 0x43 | (opc3 << 4), opc, opc2);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else if (get_arg_intreg(arg1)) {
