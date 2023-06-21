@@ -202,7 +202,7 @@ static bool get_arg_8imm(compile_ctx_t *ctx, parse_node *node, int *ival, bool *
       *is_ref = ((EXPR *)node)->is_ref;
 
     *ival = 0;
-    register_fwd_lookup(ctx, node, imm_pos, 1, false, false, 0);
+    register_fwd_lookup(ctx, node, imm_pos, 1, false, 0);
 
     return true;
   }
@@ -231,7 +231,7 @@ static bool get_arg_16imm(compile_ctx_t *ctx,
       *is_ref = ((EXPR *)node)->is_ref;
 
     *lsb = 0; *msb = 0;
-    register_fwd_lookup(ctx, node, imm_pos, 2, false, false, 0);
+    register_fwd_lookup(ctx, node, imm_pos, 2, false, 0);
 
     return true;
   }
@@ -275,7 +275,7 @@ static bool get_arg_index_offset8(compile_ctx_t *ctx, parse_node *node, int *idx
     // will patch operand position with literal value at 2nd pass
 
     *offset = 0;
-    register_fwd_lookup(ctx, node, imm_pos, 1, (expr->kind == BINARY_MINUS), false, 0);
+    register_fwd_lookup(ctx, node, imm_pos, 1, false, 0);
 
     return true;
   }
@@ -319,6 +319,10 @@ static bool get_arg_condition(parse_node *node, int *cond) {
 }
 
 static bool get_arg_reladdr(compile_ctx_t *ctx, parse_node *node, int *reladdr, int imm_pos) {
+
+// any relative jump instructions have 2 bytes length (JR, DJNZ)
+#define JUMP_REL_INSTR_SIZE 2
+
   int lsb, msb;
   section_ctx_t *section = get_current_section(ctx);
 
@@ -329,7 +333,7 @@ static bool get_arg_reladdr(compile_ctx_t *ctx, parse_node *node, int *reladdr, 
 
     if (l->kind == INT) {
       uint16_t addr = l->ival;
-      *reladdr = section->curr_pc - addr;
+      *reladdr = addr - section->curr_pc - JUMP_REL_INSTR_SIZE;
       if ((*reladdr >= -128) && (*reladdr <= 127))
         return true;
       else
@@ -337,9 +341,8 @@ static bool get_arg_reladdr(compile_ctx_t *ctx, parse_node *node, int *reladdr, 
     }
   } else if ((imm_pos != -1) && !contains_reserved_ids(node)) {
     // will patch operand position with literal value at 2nd pass
-
     *reladdr = 0;
-    register_fwd_lookup(ctx, node, imm_pos, 1, false, true, section->curr_pc);
+    register_fwd_lookup(ctx, node, imm_pos, 1, true, section->curr_pc + JUMP_REL_INSTR_SIZE);
 
     return true;
   }
@@ -633,8 +636,9 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case DJNZ: {
-      if (get_arg_reladdr(ctx, arg1, &opc, section->curr_pc - section->start + 2))
-        render_2bytes(ctx, 0x10, opc);
+      int reladdr;
+      if (get_arg_reladdr(ctx, arg1, &reladdr, section->curr_pc - section->start + 1))
+        render_2bytes(ctx, 0x10, reladdr);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
 

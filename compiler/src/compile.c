@@ -364,7 +364,6 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
                                section->curr_pc - ((LITERAL *)nrep)->ival,
                                ((LITERAL *)nrep)->ival,
                                false,
-                               false,
                                0);
         }
       } else {
@@ -517,17 +516,15 @@ void register_fwd_lookup(compile_ctx_t *ctx,
                           parse_node *unresolved_node,
                           uint32_t pos,
                           int nbytes,
-                          bool negate,
-                          bool was_reladdr,
-                          uint32_t curr_pc_reladdr) {
+                          bool relative,
+                          uint32_t instr_pc) {
   patch_t *patch = (patch_t *)malloc(sizeof(patch_t));
 
   patch->node = unresolved_node;
   patch->pos = pos;
   patch->nbytes = nbytes;
-  patch->negate = negate;
-  patch->was_reladdr = was_reladdr;
-  patch->curr_pc_reladdr = curr_pc_reladdr;
+  patch->relative = relative;
+  patch->instr_pc = instr_pc;
   patch->section_id = ctx->curr_section_id;
 
   ctx->patches = dynarray_append_ptr(ctx->patches, patch);

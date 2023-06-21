@@ -28,9 +28,8 @@ typedef struct {
   parse_node *node;
   uint32_t pos;
   int nbytes;
-  bool negate;
-  bool was_reladdr;
-  bool curr_pc_reladdr;
+  bool relative;
+  uint32_t instr_pc;
   int section_id;
 } patch_t;
 
@@ -43,6 +42,5 @@ extern void register_fwd_lookup(compile_ctx_t *ctx,
                           parse_node *unresolved_node,
                           uint32_t pos,
                           int nbytes,
-                          bool negate,
-                          bool was_reladdr,
-                          uint32_t curr_pc_reladdr);
+                          bool relative,
+                          uint32_t instr_pc);

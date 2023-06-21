@@ -242,8 +242,8 @@ void render_reorg(compile_ctx_t *ctx) {
   section_ctx_t *section = get_current_section(ctx);
 
   if ((section->curr_pc - section->start) <= section->content->len) {
-    // rewind: adjust buffer position and don't care about tail
-    section->content->len = section->curr_pc - section->start;
+    // rewind: we already adjusted buffer position and for now we do nothing.
+    // We still have a tail with previously generated code but leave it as is: will overwrite it eventually
   } else {
     // enlarge buffer and fill up to new org
     size_t fill_size = section->curr_pc - section->start - section->content->len;
@@ -256,7 +256,12 @@ void render_reorg(compile_ctx_t *ctx) {
 
 void render_patch(compile_ctx_t *ctx, patch_t *patch, int value) {
   section_ctx_t *section = (section_ctx_t *)dfirst(dynarray_nth_cell(ctx->sections, patch->section_id));
-  assert((patch->pos + patch->nbytes - 1) < section->content->len);
+
+  assert((patch->pos + patch->nbytes - 1) < section->content->maxlen);
+
+  if (patch->relative) {
+    value -= patch->instr_pc;
+  }
 
   if (patch->nbytes == 2) {
     section->content->data[patch->pos] = value & 0xFF;
@@ -266,6 +271,4 @@ void render_patch(compile_ctx_t *ctx, patch_t *patch, int value) {
   } else {
     report_error(ctx, "2nd pass: unable to patch %d bytes at once\n", patch->nbytes);
   }
-
-  // TODO: negate, relative etc
 }
