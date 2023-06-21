@@ -378,11 +378,19 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
           if (def_elem->type == NODE_LITERAL)
             l = (LITERAL *)def_elem;
           else if (def_elem->type == NODE_ID) {
-            // TODO: resolve from symtab here or on 2nd pass
             l = (LITERAL *)make_node(LITERAL, 0);
             l->kind = INT;
             l->ival = 0;
             l->is_ref = false;
+
+            section_ctx_t *section = get_current_section(&compile_ctx);
+
+            register_fwd_lookup(&compile_ctx,
+                                 def_elem,
+                                 section->curr_pc,
+                                 (def->kind == DEFKIND_DW) ? 2 : 1,
+                                 false,
+                                 0);
           } else {
             report_error(&compile_ctx, "def list must contain only literal values\n");
           }
