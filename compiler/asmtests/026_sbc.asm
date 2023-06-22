@@ -5,10 +5,6 @@ sbc a,d
 sbc a,e
 sbc a,h
 sbc a,l
-;sbc a,ixl
-;sbc a,ixh
-;sbc a,iyl
-;sbc a,iyh
 sbc a,55
 sbc a,(hl)
 sbc a,(ix+10)

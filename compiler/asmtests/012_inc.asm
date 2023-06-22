@@ -5,10 +5,6 @@ inc d
 inc e
 inc h
 inc l
-;inc ixh
-;inc ixl
-;inc iyh
-;inc iyl
 inc (hl)
 inc (ix+10)
 inc (ix - 20)

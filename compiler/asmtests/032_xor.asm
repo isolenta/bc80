@@ -4,10 +4,6 @@ xor c
 xor d
 xor h
 xor l
-;xor ixh
-;xor ixl
-;xor iyh
-;xor iyl
 xor 100
 xor (hl)
 xor (ix+10)

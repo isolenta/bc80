@@ -5,10 +5,6 @@ dec d
 dec e
 dec h
 dec l
-;dec ixh
-;dec ixl
-;dec iyh
-;dec iyl
 dec (hl)
 dec (ix+10)
 dec (ix - 20)

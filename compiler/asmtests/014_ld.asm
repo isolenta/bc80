@@ -12,38 +12,6 @@ ld d, d
 ld d, e
 ld d, h
 ld d, l
-;ld a, ixl
-;ld b, ixl
-;ld c, ixl
-;ld d, ixl
-;ld e, ixl
-;ld h, ixl
-;ld l, ixl
-;ld a, iyh
-;ld b, iyh
-;ld c, iyh
-;ld d, iyh
-;ld e, iyh
-;ld h, iyh
-;ld l, iyh
-;ld ixh, a
-;ld ixh, b
-;ld ixh, c
-;ld ixh, d
-;ld ixh, e
-;ld ixh, h
-;ld ixh, l
-;ld iyl, a
-;ld iyl, b
-;ld iyl, c
-;ld iyl, d
-;ld iyl, e
-;ld iyl, h
-;ld iyl, l
-ld ixh,ixl
-ld ixl,ixh
-ld iyh,iyl
-ld iyl,iyh
 ld a, 88
 ld b, 88
 ld c, 88

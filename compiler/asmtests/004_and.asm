@@ -4,10 +4,6 @@ and c
 and d
 and h
 and l
-;and ixh
-;and ixl
-;and iyh
-;and iyl
 and 88h
 and (hl)
 and (ix+10)

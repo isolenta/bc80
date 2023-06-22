@@ -152,23 +152,6 @@ static bool get_arg_af_shadow(parse_node *node) {
   return check_id_name(id, "af'");
 }
 
-static bool get_arg_halfindex(parse_node *node, int *i, int *b) {
-  CHECK_ARG_IS_ID(node);
-
-  if (check_id_name(id, "ixh")) {
-    *i = 0; *b = 0;
-  } else if (check_id_name(id, "ixl")) {
-    *i = 0; *b = 1;
-  } else if (check_id_name(id, "iyh")) {
-    *i = 1; *b = 0;
-  } else if (check_id_name(id, "iyl")) {
-    *i = 1; *b = 1;
-  } else {
-    return false;
-  }
-  return true;
-}
-
 static bool get_arg_index(parse_node *node, int *i, bool *is_ref) {
   CHECK_ARG_IS_ID(node);
 
@@ -445,8 +428,6 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
       if (get_arg_accum(arg1)) {
         if (get_arg_gpr8(arg2, &opc, &is_ref) && !is_ref)
           render_byte(ctx, 0x88 | opc);
-        else if (get_arg_halfindex(arg2, &opc, &opc2))
-          render_2bytes(ctx, 0xDD | (opc << 5), 0x8C | opc2);
         else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc + 2) && !is_ref)
           render_2bytes(ctx, 0xCE, opc);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
@@ -471,8 +452,6 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
       if (get_arg_accum(arg1)) {
         if (get_arg_gpr8(arg2, &opc, &is_ref) && !is_ref)
           render_byte(ctx, 0x80 | opc);
-        else if (get_arg_halfindex(arg2, &opc, &opc2))
-          render_2bytes(ctx, 0xDD | (opc << 5), 0x84 | opc2);
         else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc + 2) && !is_ref)
           render_2bytes(ctx, 0xC6, opc);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
@@ -501,8 +480,6 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
     case AND: {
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0xA0 | opc);
-      else if (get_arg_halfindex(arg1, &opc, &opc2))
-        render_2bytes(ctx, 0xDD | (opc << 5), 0xA4 | opc2);
       else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc + 2) && !is_ref)
         render_2bytes(ctx, 0xE6, opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
@@ -567,8 +544,6 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
     case CP: {
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0xB8 | opc);
-      else if (get_arg_halfindex(arg1, &opc, &opc2))
-        render_2bytes(ctx, 0xDD | (opc << 5), 0xBC | opc2);
       else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc - section->start + 2) && !is_ref)
         render_2bytes(ctx, 0xFE, opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
@@ -614,8 +589,6 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
     case DEC: {
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0x05 | (opc << 3));
-      else if (get_arg_halfindex(arg1, &opc, &opc2))
-        render_2bytes(ctx, 0xDD | (opc << 5), 0x25 | (opc2 << 3));
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0x35);
       else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
@@ -724,8 +697,6 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
     case INC: {
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0x04 | (opc << 3));
-      else if (get_arg_halfindex(arg1, &opc, &opc2))
-        render_2bytes(ctx, 0xDD | (opc << 5), 0x24 | (opc2 << 3));
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0x34);
       else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2))
@@ -834,8 +805,6 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_2bytes(ctx, 0xED, 0x5F);
         else if (get_arg_gpr8(arg2, &opc2, &is_ref) && !is_ref)
           render_byte(ctx, 0x40 | (opc << 3) | opc2);
-        else if (get_arg_halfindex(arg2, &i, &b))
-          render_2bytes(ctx, 0xDD | (i << 5), 0x44 | (opc << 3) | b);
         else if (get_arg_8imm(ctx, arg2, &opc2, &is_ref, section->curr_pc - section->start + 2) && !is_ref)
           render_2bytes(ctx, 0x06 | (opc << 3), opc2);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
@@ -846,23 +815,6 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_3bytes(ctx, 0x3A, opc, opc2);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
-      } else if (get_arg_halfindex(arg1, &i, &b)) {
-        if (get_arg_gpr8(arg2, &opc2, &is_ref) && !is_ref)
-          render_2bytes(ctx, 0xDD | (i << 5), 0x60 | (b << 3) | opc2);
-        else if (get_arg_halfindex(arg2, &i2, &b2)) {
-          if ((i == 0) && (b == 0) && (i2 == 0) && (b2 == 1))  // ixh, ixl
-            render_2bytes(ctx, 0xDD, 0x65);
-          else if ((i == 0) && (b == 1) && (i2 == 0) && (b2 == 0))  // ixl, ixh
-            render_2bytes(ctx, 0xDD, 0x6C);
-          else if ((i == 1) && (b == 0) && (i2 == 1) && (b2 == 1))  // iyh, iyl
-            render_2bytes(ctx, 0xFD, 0x65);
-          else if ((i == 1) && (b == 1) && (i2 == 1) && (b2 == 0))  // iyl, iyh
-            render_2bytes(ctx, 0xFD, 0x6C);
-          else
-            ERR_UNEXPECTED_ARGUMENT(2);
-        } else {
-          ERR_UNEXPECTED_ARGUMENT(2);
-        }
       } else if (get_arg_hl(arg1, &is_ref) && is_ref) {
         if (get_arg_gpr8(arg2, &opc, &is_ref) && !is_ref)
           render_byte(ctx, 0x70 | opc);
@@ -973,8 +925,6 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
     case OR: {
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0xB0 | opc);
-      else if (get_arg_halfindex(arg1, &opc, &opc2))
-        render_2bytes(ctx, 0xDD | (opc << 5), 0xB4 | opc2);
       else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
         render_2bytes(ctx, 0xF6, opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
@@ -1186,8 +1136,6 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
       if (get_arg_accum(arg1)) {
         if (get_arg_gpr8(arg2, &opc, &is_ref) && !is_ref)
           render_byte(ctx, 0x98 | opc);
-        else if (get_arg_halfindex(arg2, &opc, &opc2))
-          render_2bytes(ctx, 0xDD | (opc << 5), 0x9C | opc2);
         else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
           render_2bytes(ctx, 0xDE, opc);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
@@ -1287,8 +1235,6 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
     case SUB: {
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0x90 | opc);
-      else if (get_arg_halfindex(arg1, &opc, &opc2))
-        render_2bytes(ctx, 0xDD | (opc << 5), 0x94 | opc2);
       else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
         render_2bytes(ctx, 0xD6, opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
@@ -1304,8 +1250,6 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
     case XOR: {
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0xA8 | opc);
-      else if (get_arg_halfindex(arg1, &opc, &opc2))
-        render_2bytes(ctx, 0xDD | (opc << 5), 0xAC | opc2);
       else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
         render_2bytes(ctx, 0xEE, opc);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)

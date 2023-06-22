@@ -4,10 +4,6 @@ sub c
 sub d
 sub h
 sub l
-;sub ixh
-;sub ixl
-;sub iyh
-;sub iyl
 sub 99
 sub (hl)
 sub (ix+10)
