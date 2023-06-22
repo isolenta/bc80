@@ -52,8 +52,8 @@ ld (ix-10), d
 ld (ix-10), e
 ld (ix-10), h
 ld (ix-10), l
-;ld a,(bc)
-;ld a,(de)
+ld a,(bc)
+ld a,(de)
 ld a,(1234h)
 ld (bc),a
 ld (de),a
@@ -66,14 +66,14 @@ ld bc, 10000
 ld de, 10000
 ld hl, 10000
 ld sp, 10000
-;ld ix, 35000
-;ld iy, 53000
+ld ix, 35000
+ld iy, 53000
 ld bc, (20000)
 ld de, (20000)
 ld hl, (20000)
 ld sp, (20000)
-;ld ix, (10)
-;ld iy, (100)
+ld ix, (10)
+ld iy, (100)
 ld (1000), bc
 ld (1000), de
 ld (1000), hl

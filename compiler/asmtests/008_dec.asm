@@ -14,5 +14,5 @@ dec bc
 dec de
 dec hl
 dec sp
-;dec ix
-;dec iy
+dec ix
+dec iy

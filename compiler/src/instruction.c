@@ -109,10 +109,6 @@ static bool get_arg_qreg16(parse_node *node, int *reg_opcode, bool *is_ref) {
     *reg_opcode = 0x1;
   else if (check_id_name(id, "hl"))
     *reg_opcode = 0x2;
-  else if (check_id_name(id, "ix"))
-    *reg_opcode = 0x2;
-  else if (check_id_name(id, "iy"))
-    *reg_opcode = 0x2;
   else if (check_id_name(id, "sp"))
     *reg_opcode = 0x3;
   else
@@ -675,11 +671,13 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
       if (get_arg_accum(arg1)) {
         if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc - section->start + 2) && is_ref)
           render_2bytes(ctx, 0xDB, opc);
+        else if (get_arg_gpr8(arg2, &opc2, &is_ref) && is_ref && (opc2 == REG_C))
+          render_2bytes(ctx, 0xED, 0x78);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref) {
         if (get_arg_gpr8(arg2, &opc2, &is_ref) && is_ref && (opc2 == REG_C))
-          render_2bytes(ctx, 0xED, 0x40 | (opc2 << 3));
+          render_2bytes(ctx, 0xED, 0x40 | (opc << 3));
         else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else if (get_arg_flags(arg1)) {
@@ -886,8 +884,8 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_4bytes(ctx, 0xDD | (opc << 5), 0x2A, opc2, opc3);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
+      } else
         ERR_UNEXPECTED_ARGUMENT(1);
-      }
 
       break;
     }

@@ -14,5 +14,5 @@ inc bc
 inc de
 inc hl
 inc sp
-;inc ix
-;inc iy
+inc ix
+inc iy

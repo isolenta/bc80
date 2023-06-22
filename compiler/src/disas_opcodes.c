@@ -95,9 +95,9 @@ static int process_ld(disas_context_t *ctx, uint8_t *data) {
     return 0;
 
   if (data[0] == 0x0a) {
-    return add_instr2(ctx, LD, 1, mk_arg_A, mk_arg_BC);
+    return add_instr2(ctx, LD, 1, mk_arg_A, mk_arg(ARG_REGPAIR_P, REG_BC, 0, true));
   } else if (data[0] == 0x1a) {
-    return add_instr2(ctx, LD, 1, mk_arg_A, mk_arg_DE);
+    return add_instr2(ctx, LD, 1, mk_arg_A, mk_arg(ARG_REGPAIR_P, REG_DE, 0, true));
   } else if (data[0] == 0xed && data[1] == 0x57) {
     return add_instr2(ctx, LD, 2, mk_arg_A, mk_arg_I);
   } else if (data[0] == 0xed && data[1] == 0x5f) {
@@ -167,11 +167,11 @@ static int process_pushpop(disas_context_t *ctx, uint8_t *data) {
   if ((data[0] & 0xcf) == 0xc5) {
     return add_instr1(ctx, PUSH, 1, mk_arg(ARG_REGPAIR_P, (data[0] >> 4) & 0x3, 0, false));
   } else if ((data[1] == 0xe5) && (data[0] == 0xdd || data[0] == 0xfd)) {
-    return add_instr1(ctx, PUSH, 1, mk_arg(ARG_REGPAIR_I, (data[0] & 0x20) ? REG_IY : REG_IX, 0, false));
+    return add_instr1(ctx, PUSH, 2, mk_arg(ARG_REGPAIR_I, (data[0] & 0x20) ? REG_IY : REG_IX, 0, false));
   } else if ((data[0] & 0xcf) == 0xc1) {
     return add_instr1(ctx, POP, 1, mk_arg(ARG_REGPAIR_P, (data[0] >> 4) & 0x3, 0, false));
   } else if ((data[1] == 0xe1) && (data[0] == 0xdd || data[0] == 0xfd)) {
-    return add_instr1(ctx, POP, 1, mk_arg(ARG_REGPAIR_I, (data[0] & 0x20) ? REG_IY : REG_IX, 0, false));
+    return add_instr1(ctx, POP, 2, mk_arg(ARG_REGPAIR_I, (data[0] & 0x20) ? REG_IY : REG_IX, 0, false));
   }
 
   return 0;
@@ -368,8 +368,12 @@ static int process_rotate_shift(disas_context_t *ctx, uint8_t *data) {
       return add_instr1(ctx, SRA, 2, mk_GPR(data[1] & 0x7));
     } else if (data[1] == 0x3e) {
       return add_instr1(ctx, SRL, 2, mk_arg_HL_REF);
+    } else if (data[1] == 0x36) {
+      return add_instr1(ctx, SLL, 2, mk_arg_HL_REF);
     } else if ((data[1] & 0xf8) == 0x38) {
       return add_instr1(ctx, SRL, 2, mk_GPR(data[1] & 0x7));
+    } else if ((data[1] & 0xf8) == 0x30) {
+      return add_instr1(ctx, SLL, 2, mk_GPR(data[1] & 0x7));
     }
   } else if (((data[0] == 0xdd) || (data[0] == 0xfd)) && (data[1] == 0xcb)) {
     if (data[3] == 0x06) {
@@ -386,6 +390,8 @@ static int process_rotate_shift(disas_context_t *ctx, uint8_t *data) {
       return add_instr1(ctx, SRA,4,  mk_arg(ARG_INDEX, data[0] & 0x20, data[2], true));
     } else if (data[3] == 0x3e) {
       return add_instr1(ctx, SRL, 4, mk_arg(ARG_INDEX, data[0] & 0x20, data[2], true));
+    } else if (data[3] == 0x36) {
+      return add_instr1(ctx, SLL, 4, mk_arg(ARG_INDEX, data[0] & 0x20, data[2], true));
     }
   }
 
@@ -478,9 +484,9 @@ static int process_io(disas_context_t *ctx, uint8_t *data) {
   } else if ((data[0] == 0xed) && (data[1] == 0xb2)) {
     return add_instr0(ctx, INIR, 2);
   } else if (data[0] == 0xd3) {
-    return add_instr2(ctx, OUT, 2, mk_arg_A, mk_arg(ARG_8IMM, data[1], 0, true));
+    return add_instr2(ctx, OUT, 2, mk_arg(ARG_8IMM, data[1], 0, true), mk_arg_A);
   } else if ((data[0] == 0xed) && ((data[1] & 0xc7) == 0x41)) {
-    return add_instr2(ctx, OUT, 2, mk_GPR((data[1] >> 3) & 0x7), mk_arg(ARG_8GPR, REG_C, 0, true));
+    return add_instr2(ctx, OUT, 2, mk_arg(ARG_8GPR, REG_C, 0, true), mk_GPR((data[1] >> 3) & 0x7));
   } else if ((data[0] == 0xed) && (data[1] == 0xab)) {
     return add_instr0(ctx, OUTD, 2);
   } else if ((data[0] == 0xed) && (data[1] == 0xbb)) {

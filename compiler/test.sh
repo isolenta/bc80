@@ -69,16 +69,18 @@ for infile in $INPUTDIR/*.asm; do
     continue
   fi
 
-  # 5. Assembly with 3rdparty assembler
-  echo "${EXT_AS} -i $infile -o ${TMPDIR}/${BASENAME}.step4.bin" >> $LOGFILE
-  ${EXT_AS} -i $infile -o ${TMPDIR}/${BASENAME}.step4.bin  >> $LOGFILE 2>&1
+  if ! grep -q "skip-3rdparty" "${infile}"; then
+    # 5. Assembly with 3rdparty assembler
+    echo "${EXT_AS} -i $infile -o ${TMPDIR}/${BASENAME}.step4.bin" >> $LOGFILE
+    ${EXT_AS} -i $infile -o ${TMPDIR}/${BASENAME}.step4.bin  >> $LOGFILE 2>&1
 
-  # 6. Compare binaries
-  diff ${TMPDIR}/${BASENAME}.step3.bin ${TMPDIR}/${BASENAME}.step4.bin >> $LOGFILE 2>&1
-  if [ "$?" != "0" ]; then
-    echo -e "${RED}Failed${NC}"
-    failed=$((failed+1))
-    continue
+    # 6. Compare binaries
+    diff ${TMPDIR}/${BASENAME}.step3.bin ${TMPDIR}/${BASENAME}.step4.bin >> $LOGFILE 2>&1
+    if [ "$?" != "0" ]; then
+      echo -e "${RED}Failed${NC}"
+      failed=$((failed+1))
+      continue
+    fi
   fi
 
   echo -e "${GREEN}OK${NC}"
