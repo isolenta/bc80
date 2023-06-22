@@ -501,8 +501,8 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
           render_2bytes(ctx, 0xCB, 0x40 | (b << 3) | opc);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_2bytes(ctx, 0xCB, 0x46 | (b << 3));
-        else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
-          render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x40 | (b << 3));
+        else if (get_arg_index_offset8(ctx, arg2, &opc, &opc2, section->curr_pc + 2))
+          render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x46 | (b << 3));
         else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else {

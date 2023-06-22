@@ -23,7 +23,7 @@ CFLAGS := -g -ggdb -O2 -fomit-frame-pointer -std=c11 \
 					-I$(BUILDDIR) -I$(BUILDDIR)/src -I$(BUILDDIR)/$(OBJDIR)
 
 test: as disas
-	@$(shell pwd)/test.sh
+	@$(shell pwd)/test.sh $(TEST)
 
 as: $(AS_OBJS)
 	gcc -o $@ $^

@@ -23,10 +23,16 @@ total=0
 failed=0
 
 for infile in $INPUTDIR/*.asm; do
+  BASENAME=`basename $infile`
+
+  if [ "$1" != "" ]; then
+    if [ "$BASENAME" != "$1" ]; then
+      continue
+    fi
+  fi
+
   echo -n "${infile}... "
   total=$((total+1))
-
-  BASENAME=`basename $infile`
 
   # 1. Assembly test source
   echo "${MY_AS} -t raw -o ${TMPDIR}/${BASENAME}.step1.bin $infile" >> $LOGFILE
