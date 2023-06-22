@@ -22,7 +22,7 @@ DISAS_DEPS := $(addprefix $(OBJDIR)/, $(DISAS_DEPS))
 CFLAGS := -g -ggdb -O2 -fomit-frame-pointer -std=c11 \
 					-I$(BUILDDIR) -I$(BUILDDIR)/src -I$(BUILDDIR)/$(OBJDIR)
 
-test: as
+test: as disas
 	@$(shell pwd)/test.sh
 
 as: $(AS_OBJS)
@@ -34,7 +34,6 @@ disas: $(DISAS_OBJS)
 -include $(AS_DEPS) $(DISAS_DEPS)
 
 src/lexer.l: $(OBJDIR)/parser.tab.h
-src/parse.c: $(OBJDIR)/lexer.yy.h
 
 $(OBJDIR)/parser.tab.c $(OBJDIR)/parser.tab.h: src/parser.y
 	@mkdir -p $(dir $@)
