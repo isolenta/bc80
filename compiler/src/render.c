@@ -23,24 +23,13 @@ void render_start(compile_ctx_t *ctx) {
   ctx->curr_section_id = 0;
 }
 
-static void render_raw(compile_ctx_t *ctx, char *filename) {
+static uint32_t render_raw(compile_ctx_t *ctx, char **dest_buf) {
   buffer *output = get_current_section(ctx)->content;
-
-  FILE *fp = fopen(filename, "w");
-  if (!fp) {
-    perror(filename);
-    return;
-  }
-
-  size_t ret = fwrite(output->data, output->len, 1, fp);
-  if (ret != 1) {
-    perror(filename);
-  }
-
-  fclose(fp);
+  *dest_buf = buffer_dup(output);
+  return output->len;
 }
 
-static void render_elf(compile_ctx_t *ctx, char *filename) {
+static uint32_t render_elf(compile_ctx_t *ctx, char **dest_buf) {
   dynarray_cell *dc;
   uint32_t elfsize = 0;
 
@@ -105,7 +94,7 @@ static void render_elf(compile_ctx_t *ctx, char *filename) {
       sech->sh_flags = SHF_ALLOC | SHF_EXECINSTR | SHF_WRITE;
 
       if (section->start == -1)
-        report_error(ctx, "section start address for %s isn't defined (no ORG directive)\n", section->name);
+        report_error(ctx, "section start address for %s isn't defined (no ORG directive)", section->name);
 
       sech->sh_addr = section->start;
     }
@@ -129,33 +118,28 @@ static void render_elf(compile_ctx_t *ctx, char *filename) {
 
   free(sech_ptrs);
 
-  FILE *fp = fopen(filename, "w");
-  if (!fp) {
-    perror(filename);
-    return;
-  }
-
-  size_t ret = fwrite(elf->data, elf->len, 1, fp);
-  if (ret != 1) {
-    perror(filename);
-  }
-
-  fclose(fp);
-
+  *dest_buf = buffer_dup(elf);
+  elfsize = elf->len;
   buffer_free(elf);
+
+  return elfsize;
 }
 
-void render_save(compile_ctx_t *ctx, char *filename) {
+uint32_t render_finish(compile_ctx_t *ctx, char **dest_buf) {
+  assert(dest_buf);
+
   if (ctx->target == ASM_TARGET_RAW) {
     if (dynarray_length(ctx->sections) > 1)
-      report_error(ctx, "raw target supports only single section but source has %d sections\n", dynarray_length(ctx->sections));
+      report_error(ctx, "raw target supports only single section but source has %d sections", dynarray_length(ctx->sections));
 
-    render_raw(ctx, filename);
+    return render_raw(ctx, dest_buf);
   } else if (ctx->target == ASM_TARGET_ELF) {
-    render_elf(ctx, filename);
+    return render_elf(ctx, dest_buf);
   } else {
-    assert(0);
+    report_error(ctx, "unsupported target %d", ctx->target);
   }
+
+  return 0;
 }
 
 void render_byte(compile_ctx_t *ctx, char b) {
@@ -221,7 +205,7 @@ void render_from_file(compile_ctx_t *ctx, char *filename, dynarray *includeopts)
 
   char *path = fs_abs_path(filename, includeopts);
   if (path == NULL) {
-    report_error(ctx, "file not found: %s\n", filename);
+    report_error(ctx, "file not found: %s", filename);
     return;
   }
 
@@ -231,7 +215,7 @@ void render_from_file(compile_ctx_t *ctx, char *filename, dynarray *includeopts)
   FILE *fp = fopen(path, "r");
   size_t ret = fread(buf, size, 1, fp);
   if (ret != 1)
-    report_error(ctx, "unable to read %ld bytes from %s\n", size, filename);
+    report_error(ctx, "unable to read %ld bytes from %s", size, filename);
 
   buffer_append_binary(section->content, buf, size);
   free(buf);
@@ -269,6 +253,6 @@ void render_patch(compile_ctx_t *ctx, patch_t *patch, int value) {
   } else if (patch->nbytes == 1) {
     section->content->data[patch->pos] = value & 0xFF;
   } else {
-    report_error(ctx, "2nd pass: unable to patch %d bytes at once\n", patch->nbytes);
+    report_error(ctx, "2nd pass: unable to patch %d bytes at once", patch->nbytes);
   }
 }

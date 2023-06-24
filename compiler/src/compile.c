@@ -151,7 +151,7 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
         result->ival = ((LITERAL *)expr->left)->ival / ((LITERAL *)expr->right)->ival;
         return (parse_node *)result;
       } else
-        report_error(ctx, "division by zero\n");
+        report_error(ctx, "division by zero");
     } else {
       return node;
     }
@@ -210,16 +210,19 @@ static hashmap *make_symtab(hashmap *defineopts) {
   return symtab;
 }
 
-void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *outfile, int target) {
+int compile(struct libasm80_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_env) {
   dynarray_cell *dc = NULL;
 
   compile_ctx_t compile_ctx;
 
   memset(&compile_ctx, 0, sizeof(compile_ctx));
 
-  compile_ctx.symtab = make_symtab(defineopts);
+  compile_ctx.symtab = make_symtab(desc->defineopts);
   compile_ctx.verbose_error = true;
-  compile_ctx.target = target;
+  compile_ctx.target = desc->target;
+  compile_ctx.error_cb = desc->error_cb;
+  compile_ctx.warning_cb = desc->warning_cb;
+  compile_ctx.error_jmp_env = error_jmp_env;
 
   render_start(&compile_ctx);
 
@@ -249,11 +252,11 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
       bool found = false;
 
       if (dynarray_length(node_sect->args->list) == 0)
-        report_error(&compile_ctx, "'section' directive requires at least one argument\n");
+        report_error(&compile_ctx, "'section' directive requires at least one argument");
 
       LITERAL *l = (LITERAL *)expr_eval(&compile_ctx, dinitial(node_sect->args->list), true);
       if (l->kind != STR)
-        report_error(&compile_ctx, "section name must be a string\n");
+        report_error(&compile_ctx, "section name must be a string");
 
       char *name = l->strval;
 
@@ -267,7 +270,7 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
             // requesting existing section is error
             bool old_v = compile_ctx.verbose_error;
             compile_ctx.verbose_error = false;
-            report_error(&compile_ctx, "section '%s' already exists\n", name);
+            report_error(&compile_ctx, "section '%s' already exists", name);
             compile_ctx.verbose_error = old_v;
           }
         }
@@ -278,7 +281,7 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
         if (dynarray_length(node_sect->args->list) > 1) {
           l = (LITERAL *)expr_eval(&compile_ctx, dfirst(dynarray_nth_cell(node_sect->args->list, 1)), true);
           if (l->kind != INT)
-            report_error(&compile_ctx, "section address must be an integer\n");
+            report_error(&compile_ctx, "section address must be an integer");
 
           address = l->ival;
         }
@@ -288,7 +291,7 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
         if (dynarray_length(node_sect->args->list) > 2) {
           l = (LITERAL *)expr_eval(&compile_ctx, dfirst(dynarray_nth_cell(node_sect->args->list, 2)), true);
           if (l->kind != INT)
-            report_error(&compile_ctx, "section filler must be an integer\n");
+            report_error(&compile_ctx, "section filler must be an integer");
 
           filler = (uint8_t)(l->ival & 0xff);
         }
@@ -321,7 +324,7 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
           if (l->ival < section->start) {
             bool old_v = compile_ctx.verbose_error;
             compile_ctx.verbose_error = false;
-            report_error(&compile_ctx, "can't set ORG to %04xh because it's below section start address %04xh\n",
+            report_error(&compile_ctx, "can't set ORG to %04xh because it's below section start address %04xh",
               l->ival, section->start);
             compile_ctx.verbose_error = old_v;
           }
@@ -329,10 +332,10 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
           section->curr_pc = l->ival;
           render_reorg(&compile_ctx);
         } else {
-          report_error(&compile_ctx, "value must be an integer (got %s)\n", get_literal_kind(l));
+          report_error(&compile_ctx, "value must be an integer (got %s)", get_literal_kind(l));
         }
       } else {
-        report_error(&compile_ctx, "value must be a literal (got %s: %s)\n", get_parse_node_name(org_val), node_to_string(org_val));
+        report_error(&compile_ctx, "value must be a literal (got %s: %s)", get_parse_node_name(org_val), node_to_string(org_val));
       }
 
     }
@@ -354,18 +357,18 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
           // filler value can be evaluated here or later
           filler = expr_eval(&compile_ctx, dsecond(def->values->list), true);
         } else {
-          report_error(&compile_ctx, "DEFS must contain 1 or 2 arguments\n");
+          report_error(&compile_ctx, "DEFS must contain 1 or 2 arguments");
         }
 
         // size of block must be explicit integer value
         nrep = expr_eval(&compile_ctx, dinitial(def->values->list), true);
         if ((nrep->type != NODE_LITERAL) || (((LITERAL *)nrep)->kind != INT))
-          report_error(&compile_ctx, "argument 1 of DEFS must explicit integer literal value\n");
+          report_error(&compile_ctx, "argument 1 of DEFS must explicit integer literal value");
 
         int fill_ival = 0;
         if (filler->type == NODE_LITERAL) {
           if (((LITERAL *)filler)->kind != INT)
-            report_error(&compile_ctx, "argument 2 of DEFS must have integer type\n");
+            report_error(&compile_ctx, "argument 2 of DEFS must have integer type");
           fill_ival = ((LITERAL *)filler)->ival;
         }
 
@@ -408,7 +411,7 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
                                  false,
                                  0);
           } else {
-            report_error(&compile_ctx, "def list must contain only literal values\n");
+            report_error(&compile_ctx, "def list must contain only literal values");
           }
 
           if ((def->kind == DEFKIND_DB) || (def->kind == DEFKIND_DM)) {
@@ -420,7 +423,7 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
               assert(0);
           } else if (def->kind == DEFKIND_DW) {
             if (l->kind != INT)
-              report_error(&compile_ctx, "only integer literals allowed in DEFW statements\n");
+              report_error(&compile_ctx, "only integer literals allowed in DEFW statements");
 
             render_word(&compile_ctx, l->ival);
           }
@@ -431,9 +434,9 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
     if (node->type == NODE_INCBIN) {
       INCBIN *incbin = (INCBIN *)node;
       if (incbin->filename->kind == STR)
-        render_from_file(&compile_ctx, incbin->filename->strval, includeopts);
+        render_from_file(&compile_ctx, incbin->filename->strval, desc->includeopts);
       else
-        report_error(&compile_ctx, "incbin filename must be a string literal\n");
+        report_error(&compile_ctx, "incbin filename must be a string literal");
     }
 
     if (node->type == NODE_LABEL) {
@@ -461,7 +464,7 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
         if (l->kind == STR)
           name = l->strval;
         else
-          report_error(&compile_ctx, "instruction name must be a string identifier\n");
+          report_error(&compile_ctx, "instruction name must be a string identifier");
       }
 
       // evaluate all instruction arguments
@@ -486,54 +489,58 @@ void compile(dynarray *parse, hashmap *defineopts, dynarray *includeopts, char *
 
     parse_node *resolved_node = expr_eval(&compile_ctx, patch->node, true);
     if (resolved_node->type != NODE_LITERAL)
-      report_error(&compile_ctx, "unresolved symbol %s (%s)\n", node_to_string(patch->node), node_to_string(resolved_node));
+      report_error(&compile_ctx, "unresolved symbol %s (%s)", node_to_string(patch->node), node_to_string(resolved_node));
 
-    /// PATCH HERE
     LITERAL *l = (LITERAL *)resolved_node;
     if (l->kind != INT)
-      report_error(&compile_ctx, "unexpected literal type at 2nd pass\n");
+      report_error(&compile_ctx, "unexpected literal type at 2nd pass");
 
     render_patch(&compile_ctx, patch, l->ival);
   }
 
-  render_save(&compile_ctx, outfile);
+  *desc->dest_size = render_finish(&compile_ctx, desc->dest);
+
+  foreach (dc, compile_ctx.sections) {
+    section_ctx_t *section = (section_ctx_t *)dfirst(dc);
+
+    free(section->name);
+    buffer_free(section->content);
+    free(section);
+  }
+
+  // we are here, so there weren't errors during compilation
+  return 0;
 }
 
 void report_error(compile_ctx_t *ctx, char *fmt, ...) {
-  va_list args;
+  if (ctx->error_cb) {
+    va_list args;
+    buffer *msgbuf = buffer_init();
 
-  fprintf(stderr, "\x1b[31m");
+    va_start(args, fmt);
+    buffer_append_va(msgbuf, fmt, args);
+    va_end(args);
 
-  if (ctx->verbose_error)
-    fprintf(stderr, "%s error", get_parse_node_name(ctx->node));
-  else
-    fprintf(stderr, "Error");
+    int err_cb_ret = ctx->error_cb(msgbuf->data, ctx->node->line);
+    buffer_free(msgbuf);
 
-  if (ctx->verbose_error)
-    fprintf(stderr, " (at line %u)", ctx->node->line);
-
-  fprintf(stderr, ": ");
-
-  va_start(args, fmt);
-  vfprintf(stderr, fmt, args);
-  va_end(args);
-  if (ctx->verbose_error)
-    fprintf(stderr, "line was: \"%s\"\n", node_to_string(ctx->node));
-  fprintf(stderr, "\x1b[0m");
-
-  exit(1);
+    if (err_cb_ret != 0)
+      longjmp(*ctx->error_jmp_env, 1);
+  }
 }
 
 void report_warning(compile_ctx_t *ctx, char *fmt, ...) {
-  va_list args;
+  if (ctx->warning_cb) {
+    va_list args;
+    buffer *msgbuf = buffer_init();
 
-  fprintf(stderr, "\x1b[33mwarning (at line %u): ", ctx->node->line);
+    va_start(args, fmt);
+    buffer_append_va(msgbuf, fmt, args);
+    va_end(args);
 
-  va_start(args, fmt);
-  vfprintf(stderr, fmt, args);
-  va_end(args);
-
-  fprintf(stderr, "\x1b[0m");
+    ctx->warning_cb(msgbuf->data, ctx->node->line);
+    buffer_free(msgbuf);
+  }
 }
 
 void register_fwd_lookup(compile_ctx_t *ctx,

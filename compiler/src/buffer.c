@@ -24,7 +24,18 @@ void buffer_free(buffer *buf) {
   free(buf);
 }
 
-static int buffer_append_va(buffer *buf, const char *fmt, va_list args)
+char *buffer_dup(buffer *buf) {
+  char *result;
+
+  assert(buf != NULL);
+
+  result = malloc(buf->len);
+  memcpy(result, buf->data, buf->len);
+
+  return result;
+}
+
+int buffer_append_va(buffer *buf, const char *fmt, va_list args)
 {
   int avail;
   size_t nprinted;
@@ -136,4 +147,19 @@ int buffer_reserve(buffer *buf, int datalen)
 
   buf->len += datalen;
   return start;
+}
+
+char *bsprintf(const char *fmt, ...) {
+  buffer *buf = buffer_init();
+  char *result;
+
+  va_list args;
+
+  va_start(args, fmt);
+  buffer_append(buf, fmt, args);
+  va_end(args);
+
+  result = buffer_dup(buf);
+  buffer_free(buf);
+  return result;
 }

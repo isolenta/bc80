@@ -11,6 +11,7 @@
 #include "common.h"
 #include "dynarray.h"
 #include "hashmap.h"
+#include "libasm80.h"
 
 #include "parse.h"
 #include "compile.h"
@@ -32,6 +33,27 @@ static void print_usage(char *cmd) {
   );
 }
 
+static int error_cb(const char *message, int line) {
+  fprintf(stderr, "\x1b[31m");
+  fprintf(stderr, "Error");
+  if (line)
+    fprintf(stderr, " at line %d: ", line);
+  else
+    fprintf(stderr, ": ");
+  fprintf(stderr, "%s\x1b[0m\n", message);
+  return 1;
+}
+
+static void warning_cb(const char *message, int line) {
+  fprintf(stderr, "\x1b[33m");
+  fprintf(stderr, "Warning");
+  if (line)
+    fprintf(stderr, " at line %d: ", line);
+  else
+    fprintf(stderr, ": ");
+  fprintf(stderr, "%s\x1b[0m\n", message);
+}
+
 int main(int argc, char **argv) {
   int optflag;
   dynarray *includeopts = NULL;
@@ -43,7 +65,11 @@ int main(int argc, char **argv) {
   int ret;
   size_t sz;
   FILE *fin = NULL;
+  FILE *fout = NULL;
   char *source = NULL;
+  char *destination = NULL;
+  uint32_t dest_size = 0;
+  struct libasm80_as_desc_t desc;
 
   defineopts = hashmap_create(128);
 
@@ -120,21 +146,48 @@ int main(int argc, char **argv) {
     goto out;
   }
 
-  dynarray *parse = NULL;
-  parse_string(&parse, includeopts, source, infile);
-  compile(parse, defineopts, includeopts, outfile, target);
+  memset(&desc, 0, sizeof(desc));
+  desc.source = source;
+  desc.includeopts = includeopts;
+  desc.defineopts = defineopts;
+  desc.target = target;
+  desc.error_cb = error_cb;
+  desc.warning_cb = warning_cb;
+  desc.dest = &destination;
+  desc.dest_size = &dest_size;
+
+  ret = libasm80_as(&desc);
+
+  fout = fopen(outfile, "w");
+  if (!fout) {
+    perror(outfile);
+    goto out;
+  }
+
+  if (dest_size > 0) {
+    sz = fwrite(destination, dest_size, 1, fout);
+    if (sz != 1) {
+      perror(outfile);
+    }
+  }
 
 out:
   if (fin)
     fclose(fin);
 
+  if (fout)
+    fclose(fin);
+
   if (source)
     free(source);
+
+  if (destination)
+    free(destination);
 
   free(outfile);
   free(infile);
   hashmap_free(defineopts);
   dynarray_free_deep(includeopts);
 
-  return 0;
+  return ret;
 }

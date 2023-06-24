@@ -1,22 +1,32 @@
 %{
     #include <stdio.h>
+    #include <stdio.h>
+    #include <setjmp.h>
 
     #include "dynarray.h"
     #include "parse.h"
+    #include "libasm80.h"
+
+    #define YY_DECL int yylex (yyscan_t yyscanner, struct libasm80_as_desc_t *desc, jmp_buf *parse_env)
     #include "parser.tab.h"
     #include "lexer.yy.h"
 
-    void yyerror(yyscan_t scanner, dynarray **statements, char *filename, const char *msg) {
+    extern int yylex (yyscan_t yyscanner, struct libasm80_as_desc_t *desc, jmp_buf *parse_env);
+
+    void yyerror(yyscan_t scanner, dynarray **statements, struct libasm80_as_desc_t *desc, jmp_buf *parse_env, const char *msg) {
       (void)scanner;
       (void)statements;
-      fprintf(stderr, "%s at line %d of %s\n", msg, yylloc.first_line + 1, filename);
 
-      exit(1);
+      if (desc->error_cb) {
+        int err_cb_ret = desc->error_cb(msg, yylloc.first_line + 1);
+        if (err_cb_ret != 0)
+          longjmp(*parse_env, 1);
+      }
     }
 %}
 
-%param { void* scanner }
-%parse-param {dynarray **statements}{char *filename}
+%lex-param {void* scanner}{struct libasm80_as_desc_t *desc}{jmp_buf *parse_env}
+%parse-param {void* scanner}{dynarray **statements}{struct libasm80_as_desc_t *desc}{jmp_buf *parse_env}
 
 %union {
   char *str;
@@ -232,7 +242,8 @@ stmt
       }
       | T_INCLUDE str {
         LITERAL *filename = (LITERAL *)$2;
-        parse_include(statements, filename->strval);
+        if (parse_include(desc, statements, filename->strval, @1.first_line, parse_env) != 0)
+          longjmp(*parse_env, 1);
       }
       | T_DB exprlist {
         DEF *l = make_node(DEF, @1.first_line);

@@ -371,10 +371,8 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
   section_ctx_t *section = get_current_section(ctx);
 
   #define ERR_UNEXPECTED_ARGUMENT(n) do { \
-    report_error(ctx, "[%s@%d] unexpected argument %d\n", __FILE__, __LINE__, (n)); \
+    report_error(ctx, "[%s@%d] unexpected argument %d", __FILE__, __LINE__, (n)); \
   } while(0)
-
-  // printf("\x1b[32m%s\x1b[0m ", name);
 
   // get instruction ordinal id
   MnemonicEnum i_mnemonic = MAX_MNEMONIC_ID;
@@ -384,7 +382,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
   }
 
   if (i_mnemonic == MAX_MNEMONIC_ID) {
-    report_error(ctx, "no such instruction %s\n", name);
+    report_error(ctx, "no such instruction %s", name);
     return;
   }
 
@@ -400,7 +398,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
     chk_mask = NARGS_2;
 
   if (!(NUM_ARGS[(int)i_mnemonic] & chk_mask))
-    report_error(ctx, "invalid number of arguments %d\n", num_args);
+    report_error(ctx, "invalid number of arguments %d", num_args);
 
   // evaluate arguments expressions
   parse_node *arg1 = NULL;
@@ -413,7 +411,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
     arg2 = dsecond(args->list);
 
   if (args && args->list && (dynarray_length(args->list) > 2))
-    report_error(ctx, "invalid number of arguments %d\n", dynarray_length(args->list));
+    report_error(ctx, "invalid number of arguments %d", dynarray_length(args->list));
 
   bool is_ref;
   int opc, opc2;

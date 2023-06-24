@@ -524,7 +524,6 @@ static int process_cpucontrol(disas_context_t *ctx, uint8_t *data) {
 
 char *disassemble(char *data,
                   ssize_t size,
-                  char *filename,
                   bool opt_addr,
                   bool opt_source,
                   bool opt_labels,
@@ -538,7 +537,6 @@ char *disassemble(char *data,
   context.opt_addr = opt_addr;
   context.opt_labels = opt_labels;
   context.opt_source = opt_source;
-  context.in_filename = filename;
   context.org = context.curr_addr = opt_org;
 
   context.nodes = context.last_node = NULL;

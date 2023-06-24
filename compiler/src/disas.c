@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <ctype.h>
 
+#include "libasm80.h"
 #include "disas.h"
 
 static void print_usage(char *cmd) {
@@ -49,33 +50,35 @@ static bool parse_hexdec(char *strval, int *ival) {
 int main(int argc, char **argv) {
   int optflag;
   char *infile = NULL;
-  size_t sz, ret;
+  size_t ret;
   FILE *fin = NULL;
-  char *data = NULL;
+  struct libasm80_disas_desc_t desc;
 
-  bool opt_addr = true;
-  bool opt_source = true;
-  bool opt_labels = true;
-  int opt_org = 0;
+  memset(&desc, 0, sizeof(desc));
+
+  desc.opt_addr = true;
+  desc.opt_source = true;
+  desc.opt_labels = true;
+  desc.org = 0;
 
   opterr = 0;
 
   while ((optflag = getopt(argc, argv, "haslo:")) != -1) {
     switch (optflag) {
       case 'a':
-        opt_addr = false;
+        desc.opt_addr = false;
         break;
 
       case 's':
-        opt_source = false;
+        desc.opt_source = false;
         break;
 
       case 'l':
-        opt_labels = false;
+        desc.opt_labels = false;
         break;
 
       case 'o': {
-        if (!parse_hexdec(optarg, &opt_org)) {
+        if (!parse_hexdec(optarg, &desc.org)) {
           fprintf(stderr, "error parsing integer value %s\n", optarg);
           return 1;
         }
@@ -105,18 +108,19 @@ int main(int argc, char **argv) {
   }
 
   fseek(fin, 0, SEEK_END);
-  sz = ftell(fin);
+  desc.data_size = ftell(fin);
   fseek(fin, 0, SEEK_SET);
 
-  data = (char *)malloc(sz);
 
-  ret = fread(data, sz, 1, fin);
+  desc.data = (char *)malloc(desc.data_size);
+
+  ret = fread(desc.data, desc.data_size, 1, fin);
   if (ret != 1) {
     perror(infile);
     goto out;
   }
 
-  char *result = disassemble(data, sz, infile, opt_addr, opt_source, opt_labels, opt_org);
+  char *result = libasm80_disas(&desc);
   printf("%s\n", result);
   free(result);
 
@@ -124,8 +128,8 @@ out:
   if (fin)
     fclose(fin);
 
-  if (data)
-    free(data);
+  if (desc.data)
+    free(desc.data);
 
   free(infile);
 

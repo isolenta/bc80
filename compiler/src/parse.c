@@ -1,8 +1,11 @@
 #include <stdio.h>
+#include <string.h>
+#include <errno.h>
 #include <ctype.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "libasm80.h"
 #include "buffer.h"
 #include "parse.h"
 #include "filesystem.h"
@@ -401,20 +404,23 @@ char *node_to_string(parse_node *node) {
   return buf->data;
 }
 
-void parse_string(dynarray **statements, dynarray *includeopts, char *source, char *filename) {
+int parse_string(struct libasm80_as_desc_t *desc, dynarray **statements, jmp_buf *parse_env) {
   struct yy_buffer_state *buffer;
   yyscan_t scanner;
+  int result;
 
-  g_includeopts = includeopts;
+  g_includeopts = desc->includeopts;
 
   yylex_init(&scanner);
-  buffer = yy_scan_string(source, scanner);
-  yyparse(scanner, statements, filename);
+  buffer = yy_scan_string(desc->source, scanner);
+  result = yyparse(scanner, statements, desc, parse_env);
   yy_delete_buffer(buffer, scanner);
   yylex_destroy(scanner);
+
+  return result;
 }
 
-int parse_integer(char *text, int len, int base, char suffix) {
+int parse_integer(struct libasm80_as_desc_t *desc, char *text, int len, int base, char suffix, jmp_buf *parse_env) {
   int result;
   char *tmp, *endptr;
 
@@ -431,14 +437,21 @@ int parse_integer(char *text, int len, int base, char suffix) {
 
   result = strtol(tmp, &endptr, base);
   if (endptr == tmp) {
-    fprintf(stderr, "error parse decimal integer: %s", text);
-    exit(1);
+    if (desc->error_cb) {
+      char *msg = bsprintf("error parse decimal integer: %s", text);
+      int err_cb_ret = desc->error_cb(msg, 0);
+      free(msg);
+      if (err_cb_ret != 0)
+        longjmp(*parse_env, 1);
+    } else {
+      result = 0;
+    }
   }
 
   return result;
 }
 
-int parse_binary(char *text, int len) {
+int parse_binary(struct libasm80_as_desc_t *desc, char *text, int len, jmp_buf *parse_env) {
   char *tmp;
 
   if (text[0] == '%') {
@@ -455,8 +468,15 @@ int parse_binary(char *text, int len) {
 
   result = strtol(tmp, &endptr, 2);
   if (endptr == tmp) {
-    fprintf(stderr, "error parse binary integer: %s", text);
-    exit(1);
+    if (desc->error_cb) {
+      char *msg = bsprintf("error parse binary integer: %s", text);
+      int err_cb_ret = desc->error_cb(msg, 0);
+      free(msg);
+      if (err_cb_ret != 0)
+        longjmp(*parse_env, 1);
+    } else {
+      result = 0;
+    }
   }
 
   return result;
@@ -473,23 +493,33 @@ void parse_print(dynarray *statements) {
   }
 }
 
-void parse_include(dynarray **statements, char *filename) {
-  int ret;
+int parse_include(struct libasm80_as_desc_t *desc, dynarray **statements, char *filename, int line, jmp_buf *parse_env) {
+  int ret = 0;
   size_t sz;
   FILE *fp = NULL;
   char *path;
   char *source = NULL;
+  struct libasm80_as_desc_t desc_subtree;
 
   path = fs_abs_path(filename, g_includeopts);
   if (path == NULL) {
-    fprintf(stderr, "file not found: %s\n", filename);
+    if (desc->error_cb) {
+      char *msg = bsprintf("file not found: %s", filename);
+      ret = desc->error_cb(msg, line);
+      free(msg);
+    }
+
     goto out;
   }
 
   sz = fs_file_size(path);
   fp = fopen(path, "r");
   if (!fp) {
-    perror(path);
+    if (desc->error_cb) {
+      char *msg = bsprintf("%s: %s", path, strerror(errno));
+      ret = desc->error_cb(msg, line);
+      free(msg);
+    }
     goto out;
   }
 
@@ -497,16 +527,25 @@ void parse_include(dynarray **statements, char *filename) {
 
   sz = fread(source, sz, 1, fp);
   if (sz != 1) {
-    perror(path);
+    if (desc->error_cb) {
+      char *msg = bsprintf("%s: %s", path, strerror(errno));
+      ret = desc->error_cb(msg, line);
+      free(msg);
+    }
     goto out;
   }
 
-  printf("\x1b[33minclude '%s'\x1b[0m\n", path);
-  parse_string(statements, g_includeopts, source, path);
+  if (ret == 0) {
+    memcpy(&desc_subtree, desc, sizeof(struct libasm80_as_desc_t));
+    desc_subtree.source = source;
+    ret = parse_string(&desc_subtree, statements, parse_env);
+  }
 
 out:
   if (source)
     free(source);
   if (fp)
     fclose(fp);
+
+  return ret;
 }

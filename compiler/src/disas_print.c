@@ -116,9 +116,6 @@ static int disas_printf(disas_context_t *ctx, char *fmt, ...) {
 }
 
 void disas_render_text(disas_context_t *ctx) {
-  if (ctx->in_filename)
-    disas_printf(ctx, "; disassemble for %s\n\n", ctx->in_filename);
-
   for (int i = 0; i < INSTR_COLUMN; i++) {
     disas_printf(ctx, " ");
   }

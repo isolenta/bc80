@@ -145,7 +145,6 @@ typedef struct {
   bool opt_addr;
   bool opt_source;
   bool opt_labels;
-  char *in_filename;
   uint16_t org;
   uint16_t curr_addr;
   uint8_t *binary;
@@ -163,7 +162,6 @@ typedef struct {
 
 extern char *disassemble(char *data,
                   ssize_t size,
-                  char *filename,
                   bool opt_addr,
                   bool opt_source,
                   bool opt_labels,
