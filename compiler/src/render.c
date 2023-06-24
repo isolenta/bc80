@@ -194,8 +194,8 @@ void render_word(compile_ctx_t *ctx, int ival) {
   if (ival != (ival & 0xFFFF))
     report_warning(ctx, "integer value %d was cropped to 16 bit size: %d applied\n", ival, ival & 0xFFFF);
 
-  buffer_append_char(section->content, (ival >> 8) & 0xff);
   buffer_append_char(section->content, ival & 0xff);
+  buffer_append_char(section->content, (ival >> 8) & 0xff);
   section->curr_pc += 2;
 }
 
