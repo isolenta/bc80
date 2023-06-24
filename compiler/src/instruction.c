@@ -311,7 +311,7 @@ static bool get_arg_reladdr(compile_ctx_t *ctx, parse_node *node, int *reladdr, 
       return false;
 
     if (l->kind == INT) {
-      uint16_t addr = l->ival;
+      int addr = l->ival;
       *reladdr = addr - section->curr_pc - JUMP_REL_INSTR_SIZE;
       if ((*reladdr >= -128) && (*reladdr <= 127))
         return true;

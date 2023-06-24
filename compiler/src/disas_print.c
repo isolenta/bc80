@@ -268,8 +268,8 @@ void disas_render_text(disas_context_t *ctx) {
           // add current JR instruction size
           next_instr_offset += node->args[i].extra;
 
-          column += disas_printf(ctx, "%s%d",
-            (next_instr_offset >= 0) ? "" : "-",
+          column += disas_printf(ctx, "$%s%d",
+            (next_instr_offset >= 0) ? "+" : "-",
             (next_instr_offset >= 0) ? next_instr_offset : -next_instr_offset);
 
           break;
