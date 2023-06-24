@@ -40,7 +40,7 @@
 %token <str> T_ID T_STR
 %token <ival> T_INT T_DOLLAR
 %token T_LPAR T_RPAR T_MINUS T_PLUS T_MUL T_DIV T_COMMA T_COLON T_ORG T_EQU T_END T_DB T_DM T_DW T_DS
-%token T_INCBIN T_INCLUDE T_NOT T_AND T_OR T_NL T_SECTION
+%token T_INCBIN T_INCLUDE T_NOT T_AND T_OR T_NL T_SECTION T_PERCENT T_SHL T_SHR
 
 %type <node> program cstmt stmt label id str integer dollar simple_expr unary_expr expr exprlist
 
@@ -186,6 +186,30 @@ expr
       | unary_expr T_OR unary_expr {
         EXPR *l = make_node(EXPR, @1.first_line);
         l->kind = BINARY_OR;
+        l->is_ref = false;
+        l->left = $1;
+        l->right = $3;
+        $$ = (parse_node *)l;
+      }
+      | unary_expr T_PERCENT unary_expr {
+        EXPR *l = make_node(EXPR, @1.first_line);
+        l->kind = BINARY_MOD;
+        l->is_ref = false;
+        l->left = $1;
+        l->right = $3;
+        $$ = (parse_node *)l;
+      }
+      | unary_expr T_SHL unary_expr {
+        EXPR *l = make_node(EXPR, @1.first_line);
+        l->kind = BINARY_SHL;
+        l->is_ref = false;
+        l->left = $1;
+        l->right = $3;
+        $$ = (parse_node *)l;
+      }
+      | unary_expr T_SHR unary_expr {
+        EXPR *l = make_node(EXPR, @1.first_line);
+        l->kind = BINARY_SHR;
         l->is_ref = false;
         l->left = $1;
         l->right = $3;

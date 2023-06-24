@@ -83,6 +83,9 @@ typedef enum
   BINARY_DIV,
   BINARY_AND,
   BINARY_OR,
+  BINARY_MOD,
+  BINARY_SHL,
+  BINARY_SHR,
 } exprkind;
 
 typedef struct {

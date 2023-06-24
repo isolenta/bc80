@@ -194,6 +194,15 @@ void print_node(parse_node *node) {
         case BINARY_MUL:
           printf("mul ");
           break;
+        case BINARY_MOD:
+          printf("mod ");
+          break;
+        case BINARY_SHL:
+          printf("shl ");
+          break;
+        case BINARY_SHR:
+          printf("shr ");
+          break;
         default:
           break;
       }
@@ -357,6 +366,21 @@ static void node_to_string_recurse(parse_node *node, buffer *buf) {
         case BINARY_MUL:
           node_to_string_recurse(l->left, buf);
           buffer_append(buf, " * ");
+          node_to_string_recurse(l->right, buf);
+          break;
+        case BINARY_MOD:
+          node_to_string_recurse(l->left, buf);
+          buffer_append(buf, " % ");
+          node_to_string_recurse(l->right, buf);
+          break;
+        case BINARY_SHL:
+          node_to_string_recurse(l->left, buf);
+          buffer_append(buf, " << ");
+          node_to_string_recurse(l->right, buf);
+          break;
+        case BINARY_SHR:
+          node_to_string_recurse(l->left, buf);
+          buffer_append(buf, " >> ");
           node_to_string_recurse(l->right, buf);
           break;
         default:

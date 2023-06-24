@@ -183,6 +183,48 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
     } else {
       return node;
     }
+  } else if (expr->kind == BINARY_MOD) {
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
+    expr->right = expr_eval(ctx, expr->right, do_eval_dollar);
+
+    if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
+          (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
+      LITERAL *result = (LITERAL *)make_node(LITERAL, 0);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)expr->left)->ival % ((LITERAL *)expr->right)->ival;
+      return (parse_node *)result;
+    } else {
+      return node;
+    }
+  } else if (expr->kind == BINARY_SHL) {
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
+    expr->right = expr_eval(ctx, expr->right, do_eval_dollar);
+
+    if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
+          (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
+      LITERAL *result = (LITERAL *)make_node(LITERAL, 0);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)expr->left)->ival << ((LITERAL *)expr->right)->ival;
+      return (parse_node *)result;
+    } else {
+      return node;
+    }
+  } else if (expr->kind == BINARY_SHR) {
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
+    expr->right = expr_eval(ctx, expr->right, do_eval_dollar);
+
+    if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
+          (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
+      LITERAL *result = (LITERAL *)make_node(LITERAL, 0);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)expr->left)->ival >> ((LITERAL *)expr->right)->ival;
+      return (parse_node *)result;
+    } else {
+      return node;
+    }
   }
 
   return node;

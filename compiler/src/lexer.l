@@ -105,6 +105,9 @@ intnum  ({decnum}|{hexnum}|{binnum})
 ","    { return T_COMMA; }
 ":"    { return T_COLON; }
 "$"    { return T_DOLLAR; }
+"%"    { return T_PERCENT; }
+"<<"   { return T_SHL; }
+">>"   { return T_SHR; }
 
 .      { return *yytext; }
 
