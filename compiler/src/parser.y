@@ -213,6 +213,12 @@ stmt
         END *l = make_node(END, @1.first_line);
         *statements = dynarray_append_ptr(*statements, l);
       }
+      | id T_COLON T_EQU expr {
+        EQU *l = make_node(EQU, @1.first_line);
+        l->name = (ID *)$1;
+        l->value = (EXPR *)$4;
+        *statements = dynarray_append_ptr(*statements, l);
+      }
       | id T_EQU expr {
         EQU *l = make_node(EQU, @1.first_line);
         l->name = (ID *)$1;

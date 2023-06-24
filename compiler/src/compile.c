@@ -77,18 +77,22 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
   } else if (expr->kind == UNARY_MINUS) {
     expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT)) {
-      ((LITERAL *)expr->left)->ival = -((LITERAL *)expr->left)->ival;
-      ((LITERAL *)expr->left)->is_ref = expr->is_ref;
-      return (parse_node *)expr->left;
+      LITERAL *result = (LITERAL *)make_node(LITERAL, 0);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = -((LITERAL *)expr->left)->ival;
+      return (parse_node *)result;
     } else {
       return node;
     }
   } else if (expr->kind == UNARY_NOT) {
     expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT)) {
-      ((LITERAL *)expr->left)->ival = ~((LITERAL *)expr->left)->ival;
-      ((LITERAL *)expr->left)->is_ref = expr->is_ref;
-      return (parse_node *)expr->left;
+      LITERAL *result = (LITERAL *)make_node(LITERAL, 0);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ~((LITERAL *)expr->left)->ival;
+      return (parse_node *)result;
     } else {
       return node;
     }
@@ -98,9 +102,11 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
-      ((LITERAL *)expr->left)->ival += ((LITERAL *)expr->right)->ival;
-      ((LITERAL *)expr->left)->is_ref = expr->is_ref;
-      return (parse_node *)expr->left;
+      LITERAL *result = (LITERAL *)make_node(LITERAL, 0);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)expr->left)->ival + ((LITERAL *)expr->right)->ival;
+      return (parse_node *)result;
     } else {
       return node;
     }
@@ -110,9 +116,11 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
-      ((LITERAL *)expr->left)->ival -= ((LITERAL *)expr->right)->ival;
-      ((LITERAL *)expr->left)->is_ref = expr->is_ref;
-      return (parse_node *)expr->left;
+      LITERAL *result = (LITERAL *)make_node(LITERAL, 0);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)expr->left)->ival - ((LITERAL *)expr->right)->ival;
+      return (parse_node *)result;
     } else {
       return node;
     }
@@ -122,9 +130,11 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
-      ((LITERAL *)expr->left)->ival *= ((LITERAL *)expr->right)->ival;
-      ((LITERAL *)expr->left)->is_ref = expr->is_ref;
-      return (parse_node *)expr->left;
+      LITERAL *result = (LITERAL *)make_node(LITERAL, 0);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)expr->left)->ival * ((LITERAL *)expr->right)->ival;
+      return (parse_node *)result;
     } else {
       return node;
     }
@@ -134,12 +144,14 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
-      if (((LITERAL *)expr->right)->ival != 0)
-        ((LITERAL *)expr->left)->ival /= ((LITERAL *)expr->right)->ival;
-      else
+      if (((LITERAL *)expr->right)->ival != 0) {
+        LITERAL *result = (LITERAL *)make_node(LITERAL, 0);
+        result->kind = INT;
+        result->is_ref = expr->is_ref;
+        result->ival = ((LITERAL *)expr->left)->ival / ((LITERAL *)expr->right)->ival;
+        return (parse_node *)result;
+      } else
         report_error(ctx, "division by zero\n");
-      ((LITERAL *)expr->left)->is_ref = expr->is_ref;
-      return (parse_node *)expr->left;
     } else {
       return node;
     }
@@ -149,9 +161,11 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
-      ((LITERAL *)expr->left)->ival &= ((LITERAL *)expr->right)->ival;
-      ((LITERAL *)expr->left)->is_ref = expr->is_ref;
-      return (parse_node *)expr->left;
+      LITERAL *result = (LITERAL *)make_node(LITERAL, 0);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)expr->left)->ival & ((LITERAL *)expr->right)->ival;
+      return (parse_node *)result;
     } else {
       return node;
     }
@@ -161,9 +175,11 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
-      ((LITERAL *)expr->left)->ival |= ((LITERAL *)expr->right)->ival;
-      ((LITERAL *)expr->left)->is_ref = expr->is_ref;
-      return (parse_node *)expr->left;
+      LITERAL *result = (LITERAL *)make_node(LITERAL, 0);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)expr->left)->ival | ((LITERAL *)expr->right)->ival;
+      return (parse_node *)result;
     } else {
       return node;
     }
