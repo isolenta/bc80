@@ -31,18 +31,18 @@
 %union {
   char *str;
   int ival;
-  void *node;
+  parse_node *node;
 }
 
 %locations
 %define parse.error verbose
 
 %token <str> T_ID T_STR
-%token <ival> T_INT T_DOLLAR
-%token T_LPAR T_RPAR T_MINUS T_PLUS T_MUL T_DIV T_COMMA T_COLON T_ORG T_EQU T_END T_DB T_DM T_DW T_DS
-%token T_INCBIN T_INCLUDE T_NOT T_AND T_OR T_NL T_SECTION T_PERCENT T_SHL T_SHR
+%token <ival> T_INT
+%token T_DOLLAR T_LPAR T_RPAR T_MINUS T_PLUS T_MUL T_DIV T_COMMA T_COLON T_ORG T_EQU T_END T_DB
+%token T_DM T_DW T_DS T_INCBIN T_INCLUDE T_NOT T_AND T_OR T_NL T_SECTION T_PERCENT T_SHL T_SHR
 
-%type <node> program cstmt stmt label id str integer dollar simple_expr unary_expr expr exprlist
+%type <node> label id str integer dollar simple_expr unary_expr expr exprlist
 
 %start program
 
@@ -92,19 +92,7 @@ simple_expr
         l->right = NULL;
         $$ = (parse_node *)l;
       }
-      | T_LPAR id T_RPAR {
-        EXPR *l = make_node(EXPR, @2.first_line);
-        l->kind = SIMPLE;
-        l->is_ref = true;
-        l->left = $2;
-        l->right = NULL;
-        $$ = (parse_node *)l;
-      }
       | str { $$ = $1; }
-      | T_LPAR integer T_RPAR {
-         $$ = $2;
-         ((LITERAL *)$$)->is_ref = true;
-      }
       | integer { $$ = $1; }
       | dollar { $$ = $1; }
       | T_LPAR expr T_RPAR {
@@ -314,13 +302,12 @@ stmt
 
 nl
       : T_NL
-      | nl T_NL
       ;
 
 cstmt
       : stmt nl
       | label stmt nl
-      | nl
+      | nl {}
       ;
 
 program

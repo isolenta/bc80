@@ -44,7 +44,7 @@ intnum  ({decnum}|{hexnum}|{binnum})
 {comment}      {}
 ^{optws}{newline}     {}
 
-{newline} { return T_NL; }
+{newline}     { return T_NL; }
 
 (?i:org)      { return T_ORG; }
 (?i:equ)      { return T_EQU; }
