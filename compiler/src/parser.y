@@ -42,7 +42,7 @@
 %token T_DOLLAR T_LPAR T_RPAR T_MINUS T_PLUS T_MUL T_DIV T_COMMA T_COLON T_ORG T_EQU T_END T_DB
 %token T_DM T_DW T_DS T_INCBIN T_INCLUDE T_NOT T_AND T_OR T_NL T_SECTION T_PERCENT T_SHL T_SHR
 
-%type <node> label id str integer dollar simple_expr unary_expr expr exprlist
+%type <node> id str integer dollar simple_expr unary_expr expr exprlist
 
 %start program
 

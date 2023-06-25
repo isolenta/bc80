@@ -432,14 +432,25 @@ int parse_string(struct libasm80_as_desc_t *desc, dynarray **statements, jmp_buf
   struct yy_buffer_state *buffer;
   yyscan_t scanner;
   int result;
+  char *data;
 
   g_includeopts = desc->includeopts;
 
+  size_t len = strlen(desc->source);
+  data = (char *)malloc(len + 2);
+  strcpy(data, desc->source);
+
+  // add extra NL for correct parsing
+  data[len] = '\n';
+  data[len + 1] = '\0';
+
   yylex_init(&scanner);
-  buffer = yy_scan_string(desc->source, scanner);
+  buffer = yy_scan_string(data, scanner);
   result = yyparse(scanner, statements, desc, parse_env);
   yy_delete_buffer(buffer, scanner);
   yylex_destroy(scanner);
+
+  free(data);
 
   return result;
 }

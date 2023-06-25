@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
   char *outfile = NULL;
   int target = ASM_TARGET_RAW;
   int ret;
-  size_t sz;
+  size_t filesize, sret;
   FILE *fin = NULL;
   FILE *fout = NULL;
   char *source = NULL;
@@ -131,20 +131,22 @@ int main(int argc, char **argv) {
     goto out;
   }
 
-  sz = fs_file_size(infile);
+  filesize = fs_file_size(infile);
   fin = fopen(infile, "r");
   if (!fin) {
     perror(infile);
     goto out;
   }
 
-  source = (char *)malloc(sz);
+  source = (char *)malloc(filesize + 1);
 
-  sz = fread(source, sz, 1, fin);
-  if (sz != 1) {
+  sret = fread(source, filesize, 1, fin);
+  if (sret != 1) {
     perror(infile);
     goto out;
   }
+
+  source[filesize] = '\0';
 
   memset(&desc, 0, sizeof(desc));
   desc.source = source;
@@ -165,8 +167,8 @@ int main(int argc, char **argv) {
   }
 
   if (dest_size > 0) {
-    sz = fwrite(destination, dest_size, 1, fout);
-    if (sz != 1) {
+    sret = fwrite(destination, dest_size, 1, fout);
+    if (sret != 1) {
       perror(outfile);
     }
   }
