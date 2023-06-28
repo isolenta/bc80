@@ -11,12 +11,12 @@
 #define DEFAULT_SECTION_NAME ".text"
 
 void render_start(compile_ctx_t *ctx) {
-  section_ctx_t *defsect = (section_ctx_t *)malloc(sizeof(section_ctx_t));
+  section_ctx_t *defsect = (section_ctx_t *)xmalloc(sizeof(section_ctx_t));
 
   defsect->start = 0;
   defsect->curr_pc = 0;
   defsect->content = buffer_init();
-  defsect->name = strdup(DEFAULT_SECTION_NAME);
+  defsect->name = xstrdup(DEFAULT_SECTION_NAME);
   defsect->filler = 0;
 
   ctx->sections = dynarray_append_ptr(ctx->sections, defsect);
@@ -34,9 +34,9 @@ static uint32_t render_elf(compile_ctx_t *ctx, char **dest_buf) {
   uint32_t elfsize = 0;
 
   // add section to store section names (now it's empty, will populate it on the fly)
-  section_ctx_t *shstrtab = (section_ctx_t *)malloc(sizeof(section_ctx_t));
+  section_ctx_t *shstrtab = (section_ctx_t *)xmalloc(sizeof(section_ctx_t));
   shstrtab->content = buffer_init();
-  shstrtab->name = strdup(SHSTRTAB_NAME);
+  shstrtab->name = xstrdup(SHSTRTAB_NAME);
   buffer_append_char(shstrtab->content, '\0');  // first byte in strtab is always zero
   ctx->sections = dynarray_append_ptr(ctx->sections, shstrtab);
 
@@ -71,7 +71,7 @@ static uint32_t render_elf(compile_ctx_t *ctx, char **dest_buf) {
   elf_fh->e_shnum = dynarray_length(ctx->sections);
   elf_fh->e_shstrndx = dynarray_length(ctx->sections) - 1; // .shstrtab is always last section
 
-  elf_section_header **sech_ptrs = (elf_section_header **)malloc(sizeof(elf_section_header *) * dynarray_length(ctx->sections));
+  elf_section_header **sech_ptrs = (elf_section_header **)xmalloc(sizeof(elf_section_header *) * dynarray_length(ctx->sections));
 
   int i = 0;
   foreach (dc, ctx->sections) {
@@ -116,7 +116,7 @@ static uint32_t render_elf(compile_ctx_t *ctx, char **dest_buf) {
     sech_ptrs[i++]->sh_offset = buffer_append_binary(elf, section->content->data, section->content->len);
   }
 
-  free(sech_ptrs);
+  xfree(sech_ptrs);
 
   *dest_buf = buffer_dup(elf);
   elfsize = elf->len;
@@ -192,10 +192,10 @@ void render_bytes(compile_ctx_t *ctx, char *buf, uint32_t len) {
 void render_block(compile_ctx_t *ctx, char filler, uint32_t len) {
   section_ctx_t *section = get_current_section(ctx);
 
-  char *tmp = malloc(len);
+  char *tmp = xmalloc(len);
   memset(tmp, filler, len);
   buffer_append_binary(section->content, tmp, len);
-  free(tmp);
+  xfree(tmp);
 
   section->curr_pc += len;
 }
@@ -210,7 +210,7 @@ void render_from_file(compile_ctx_t *ctx, char *filename, dynarray *includeopts)
   }
 
   size_t size = fs_file_size(path);
-  char *buf = malloc(size);
+  char *buf = xmalloc(size);
 
   FILE *fp = fopen(path, "r");
   size_t ret = fread(buf, size, 1, fp);
@@ -218,7 +218,7 @@ void render_from_file(compile_ctx_t *ctx, char *filename, dynarray *includeopts)
     report_error(ctx, "unable to read %ld bytes from %s", size, filename);
 
   buffer_append_binary(section->content, buf, size);
-  free(buf);
+  xfree(buf);
   section->curr_pc += size;
 }
 
@@ -231,10 +231,10 @@ void render_reorg(compile_ctx_t *ctx) {
   } else {
     // enlarge buffer and fill up to new org
     size_t fill_size = section->curr_pc - section->start - section->content->len;
-    char *tmp = malloc(fill_size);
+    char *tmp = xmalloc(fill_size);
     memset(tmp, section->filler, fill_size);
     buffer_append_binary(section->content, tmp, fill_size);
-    free(tmp);
+    xfree(tmp);
   }
 }
 

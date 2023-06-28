@@ -1,12 +1,14 @@
 BISON := /opt/homebrew/opt/bison/bin/bison
 FLEX := /opt/homebrew/opt/flex/bin/flex
+#CC := /opt/homebrew/bin/gcc-13
+CC := gcc
 
 all: libasm80.a as disas
 
 OBJDIR := .obj
 
 LIB_OBJS := libasm80.o common.o dynarray.o hashmap.o buffer.o parse.o compile.o render.o filesystem.o \
-					instruction.o lexer.yy.o parser.tab.o disas_opcodes.o disas_print.o
+					instruction.o lexer.yy.o parser.tab.o disas_opcodes.o disas_print.o mmgr.o
 LIB_OBJS := $(addprefix $(OBJDIR)/, $(LIB_OBJS))
 LIB_DEPS := $(addprefix src/, $(AS_OBJS:%.o=%.d))
 
@@ -23,8 +25,10 @@ AS_DEPS := $(addprefix $(OBJDIR)/, $(AS_DEPS))
 DISAS_OBJS := $(addprefix $(OBJDIR)/, $(DISAS_OBJS))
 DISAS_DEPS := $(addprefix $(OBJDIR)/, $(DISAS_DEPS))
 
-CFLAGS := -g -ggdb -O2 -fomit-frame-pointer -std=c11 \
+CFLAGS := -g -ggdb -O0 -fno-omit-frame-pointer -std=c11 \
 					-I$(BUILDDIR) -I$(BUILDDIR)/src -I$(BUILDDIR)/$(OBJDIR)
+
+LDFLAGS :=
 
 test: as disas
 	@$(shell pwd)/test.sh $(TEST)
@@ -33,10 +37,10 @@ libasm80.a: $(LIB_OBJS)
 	ar -rc $@ $^
 
 as: $(AS_OBJS) libasm80.a
-	gcc -o $@ $^
+	$(CC) -o $@ $(LDFLAGS) $^
 
 disas: $(DISAS_OBJS) libasm80.a
-	gcc -o $@ $^
+	$(CC) -o $@ $(LDFLAGS) $^
 
 -include $(AS_DEPS) $(DISAS_DEPS)
 
@@ -62,19 +66,19 @@ $(OBJDIR)/lexer.yy.h: src/lexer.l
 
 $(OBJDIR)/parser.tab.o: $(OBJDIR)/parser.tab.c
 	@mkdir -p $(dir $@)
-	gcc $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/lexer.yy.o: $(OBJDIR)/lexer.yy.c
 	@mkdir -p $(dir $@)
-	gcc $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/%.o: src/%.c $(OBJDIR)/%.d
 	@mkdir -p $(dir $@)
-	gcc $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/%.d: src/%.c
 	@mkdir -p $(dir $@)
-	gcc $(CFLAGS) -MM $^ -MF $@
+	$(CC) $(CFLAGS) -MM $^ -MF $@
 
 .PRECIOUS: $(OBJDIR)/%.d
 

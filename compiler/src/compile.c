@@ -233,7 +233,7 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
 static hashmap *make_symtab(hashmap *defineopts) {
   hashmap_scan *scan = NULL;
   hashmap_entry *entry = NULL;
-  hashmap *symtab = hashmap_create(1024);
+  hashmap *symtab = hashmap_create(1024, "symtab");
 
   scan = hashmap_scan_init(defineopts);
   while ((entry = hashmap_scan_next(scan)) != NULL) {
@@ -243,7 +243,7 @@ static hashmap *make_symtab(hashmap *defineopts) {
       l->kind = INT;
     } else {
       l->kind = STR;
-      l->strval = strdup(entry->value);
+      l->strval = xstrdup(entry->value);
     }
 
     hashmap_search(symtab, entry->key, HASHMAP_INSERT, l);
@@ -339,11 +339,11 @@ int compile(struct libasm80_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp
         }
 
         // create a new section
-        section_ctx_t *new_sect = (section_ctx_t *)malloc(sizeof(section_ctx_t));
+        section_ctx_t *new_sect = (section_ctx_t *)xmalloc(sizeof(section_ctx_t));
 
         new_sect->start = new_sect->curr_pc = address;
         new_sect->filler = filler;
-        new_sect->name = strdup(name);
+        new_sect->name = xstrdup(name);
         new_sect->content = buffer_init();
 
         compile_ctx.sections = dynarray_append_ptr(compile_ctx.sections, new_sect);
@@ -545,9 +545,9 @@ int compile(struct libasm80_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp
   foreach (dc, compile_ctx.sections) {
     section_ctx_t *section = (section_ctx_t *)dfirst(dc);
 
-    free(section->name);
+    xfree(section->name);
     buffer_free(section->content);
-    free(section);
+    xfree(section);
   }
 
   // we are here, so there weren't errors during compilation
@@ -591,7 +591,7 @@ void register_fwd_lookup(compile_ctx_t *ctx,
                           int nbytes,
                           bool relative,
                           uint32_t instr_pc) {
-  patch_t *patch = (patch_t *)malloc(sizeof(patch_t));
+  patch_t *patch = (patch_t *)xmalloc(sizeof(patch_t));
 
   patch->node = unresolved_node;
   patch->pos = pos;

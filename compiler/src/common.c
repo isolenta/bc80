@@ -10,14 +10,14 @@
 
 dynarray *split_string_sep(char *str, char sep, bool first) {
   dynarray *darray = NULL;
-  char *tmpstr = strdup(str);
+  char *tmpstr = xstrdup(str);
   char *p = tmpstr;
   char *token = p;
 
   while (*p) {
     if (*p == sep) {
       *p = 0;
-      darray = dynarray_append_ptr(darray, strdup(token));
+      darray = dynarray_append_ptr(darray, xstrdup(token));
       token = p + 1;
 
       if (first)
@@ -25,9 +25,9 @@ dynarray *split_string_sep(char *str, char sep, bool first) {
     }
     p++;
   }
-  darray = dynarray_append_ptr(darray, strdup(token));
+  darray = dynarray_append_ptr(darray, xstrdup(token));
 
-  free(tmpstr);
+  xfree(tmpstr);
   return darray;
 }
 

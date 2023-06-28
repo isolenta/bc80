@@ -21,7 +21,7 @@ static void append_node(disas_context_t *ctx, disas_node_t *node) {
 
 static int add_instr0(disas_context_t *ctx, MnemonicEnum instr, int isize) {
   assert(isize <= 4);
-  disas_node_t *node = (disas_node_t *)malloc(sizeof(disas_node_t));
+  disas_node_t *node = (disas_node_t *)xmalloc(sizeof(disas_node_t));
   node->instr = instr;
   node->isize = isize;
   node->valid = true;
@@ -36,7 +36,7 @@ static int add_instr0(disas_context_t *ctx, MnemonicEnum instr, int isize) {
 
 static int add_instr1(disas_context_t *ctx, MnemonicEnum instr, int isize, disas_arg_t *arg1) {
   assert(isize <= 4);
-  disas_node_t *node = (disas_node_t *)malloc(sizeof(disas_node_t));
+  disas_node_t *node = (disas_node_t *)xmalloc(sizeof(disas_node_t));
   node->instr = instr;
   node->isize = isize;
   node->valid = true;
@@ -52,7 +52,7 @@ static int add_instr1(disas_context_t *ctx, MnemonicEnum instr, int isize, disas
 
 static int add_instr2(disas_context_t *ctx, MnemonicEnum instr, int isize, disas_arg_t *arg1, disas_arg_t *arg2) {
   assert(isize <= 4);
-  disas_node_t *node = (disas_node_t *)malloc(sizeof(disas_node_t));
+  disas_node_t *node = (disas_node_t *)xmalloc(sizeof(disas_node_t));
   node->instr = instr;
   node->isize = isize;
   node->valid = true;
@@ -68,7 +68,7 @@ static int add_instr2(disas_context_t *ctx, MnemonicEnum instr, int isize, disas
 }
 
 static int add_invalid_instr(disas_context_t *ctx, uint8_t opcode) {
-  disas_node_t *node = (disas_node_t *)malloc(sizeof(disas_node_t));
+  disas_node_t *node = (disas_node_t *)xmalloc(sizeof(disas_node_t));
   node->instr = opcode;
   node->isize = 1;
   node->addr = ctx->curr_addr;
@@ -81,7 +81,7 @@ static int add_invalid_instr(disas_context_t *ctx, uint8_t opcode) {
 }
 
 static disas_arg_t *mk_arg(arg_kind kind, int value, int extra, bool is_ref) {
-  disas_arg_t *arg = (disas_arg_t *)malloc(sizeof(disas_arg_t));
+  disas_arg_t *arg = (disas_arg_t *)xmalloc(sizeof(disas_arg_t));
   arg->kind = kind;
   arg->is_ref = is_ref;
   arg->value = value;
@@ -578,13 +578,13 @@ char *disassemble(char *data,
   }
 
   context.out_capacity = 1024;
-  context.out_str = malloc(context.out_capacity);
+  context.out_str = xmalloc(context.out_capacity);
   context.out_len = 0;
 
   disas_render_text(&context);
 
   for (node = context.nodes; node != NULL; node = node->next)
-    free(node);
+    xfree(node);
 
   return context.out_str;
 }

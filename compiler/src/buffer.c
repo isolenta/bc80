@@ -9,10 +9,10 @@
 #define BUFFER_INIT_SIZE 1024
 
 buffer *buffer_init() {
-  buffer *buf = (buffer *)malloc(sizeof(buffer));
+  buffer *buf = (buffer *)xmalloc(sizeof(buffer));
 
   buf->maxlen = BUFFER_INIT_SIZE;
-  buf->data = (char *)malloc(buf->maxlen);
+  buf->data = (char *)xmalloc(buf->maxlen);
   buf->data[0] = '\0';
   buf->len = 0;
 
@@ -20,8 +20,8 @@ buffer *buffer_init() {
 }
 
 void buffer_free(buffer *buf) {
-  free(buf->data);
-  free(buf);
+  xfree(buf->data);
+  xfree(buf);
 }
 
 char *buffer_dup(buffer *buf) {
@@ -29,7 +29,7 @@ char *buffer_dup(buffer *buf) {
 
   assert(buf != NULL);
 
-  result = malloc(buf->len);
+  result = xmalloc(buf->len);
   memcpy(result, buf->data, buf->len);
 
   return result;
@@ -85,7 +85,7 @@ static void buffer_enlarge(buffer *buf, int needed)
   while (needed > newlen)
     newlen = 2 * newlen;
 
-  buf->data = (char *) realloc(buf->data, newlen);
+  buf->data = (char *) xrealloc(buf->data, newlen);
 
   buf->maxlen = newlen;
 }

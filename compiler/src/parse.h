@@ -132,7 +132,7 @@ extern parse_node *new_node_macro_holder;
 
 #define new_node(size, t, loc) \
 ( \
-  new_node_macro_holder = (parse_node *)malloc(size), \
+  new_node_macro_holder = (parse_node *)xmalloc2(size, #t), \
   new_node_macro_holder->type = (t), \
   new_node_macro_holder->line = (loc)+1, \
   new_node_macro_holder \

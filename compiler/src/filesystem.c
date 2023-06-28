@@ -19,7 +19,7 @@ char *fs_replace_suffix(char *filename, char *new_sfx) {
     basename_len = dotpos - filename;
 
   // one extra byte for dot and one extrabyte for null-terminate
-  result = malloc(basename_len + 1 + strlen(new_sfx) + 1);
+  result = xmalloc(basename_len + 1 + strlen(new_sfx) + 1);
   memcpy(result, filename, basename_len);
   result[basename_len] = '.';
   strcpy(result + basename_len + 1, new_sfx);
@@ -32,7 +32,7 @@ char *fs_get_suffix(char *filename) {
   if (dotpos == NULL)
     return "";
 
-  char *result = malloc(strlen(filename) - (dotpos - filename));
+  char *result = xmalloc(strlen(filename) - (dotpos - filename));
   memcpy(result, dotpos + 1, strlen(filename) - (dotpos - filename) - 1);
   result[strlen(filename) - (dotpos - filename) - 1] = '\0';
 

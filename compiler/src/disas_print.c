@@ -23,7 +23,7 @@ static char *int_to_hex(uint16_t value, bool expl16bit) {
     fmt = "%02xh";
 
   int len = snprintf(tmp, sizeof(tmp), fmt, value);
-  res = malloc(len + 2);
+  res = xmalloc(len + 2);
   p = res;
 
   if (tmp[0] >= 'a' && tmp[0] <= 'f') {
@@ -35,7 +35,7 @@ static char *int_to_hex(uint16_t value, bool expl16bit) {
 }
 
 static char *str_tolower(char *str) {
-  char *res = strdup(str);
+  char *res = xstrdup(str);
   char *p = res;
   while (*p) {
     *p = tolower(*p);
@@ -56,7 +56,7 @@ static char *get_label_name(disas_context_t *ctx, uint16_t addr) {
       id++;
 
   snprintf(tmp, sizeof(tmp), "lbl_%d", id);
-  return strdup(tmp);
+  return xstrdup(tmp);
 }
 
 static void disas_enlarge(disas_context_t *ctx, int len)
@@ -72,7 +72,7 @@ static void disas_enlarge(disas_context_t *ctx, int len)
   while (len > newlen)
     newlen = 2 * newlen;
 
-  ctx->out_str = (char *) realloc(ctx->out_str, newlen);
+  ctx->out_str = (char *) xrealloc(ctx->out_str, newlen);
 
   ctx->out_capacity = newlen;
 }
@@ -122,7 +122,7 @@ void disas_render_text(disas_context_t *ctx) {
 
   char *orgval = int_to_hex(ctx->org, true);
   disas_printf(ctx, "org %s\n\n", orgval);
-  free(orgval);
+  xfree(orgval);
 
   for (disas_node_t *node = ctx->nodes; node != NULL; node = node->next) {
     int column = 0;
@@ -131,7 +131,7 @@ void disas_render_text(disas_context_t *ctx) {
       char *label_name = get_label_name(ctx, node->addr);
       if (label_name) {
         disas_printf(ctx, "%s:\n", label_name);
-        free(label_name);
+        xfree(label_name);
       }
     }
 
@@ -143,7 +143,7 @@ void disas_render_text(disas_context_t *ctx) {
     if (node->valid == false) {
       char *defval = int_to_hex(node->instr, false);
       column += disas_printf(ctx, "defb %s", defval);
-      free(defval);
+      xfree(defval);
 
       for (int i = 0; i < (COMMENT_COLUMN - column); i++)
         disas_printf(ctx, " ");
@@ -155,7 +155,7 @@ void disas_render_text(disas_context_t *ctx) {
 
     char *mnemonic = str_tolower(MnemonicStrings[node->instr]);
     column += disas_printf(ctx, "%s ", mnemonic);
-    free(mnemonic);
+    xfree(mnemonic);
 
     assert(node->num_args <= 2);
 
@@ -175,7 +175,7 @@ void disas_render_text(disas_context_t *ctx) {
             strval,
             (node->args[i].is_ref ? ")" : ""));
 
-          free(strval);
+          xfree(strval);
           break;
         }
 
@@ -194,7 +194,7 @@ void disas_render_text(disas_context_t *ctx) {
             (node->args[i].is_ref ? "(" : ""),
             strval,
             (node->args[i].is_ref ? ")" : ""));
-          free(strval);
+          xfree(strval);
           break;
         }
 
@@ -276,7 +276,7 @@ void disas_render_text(disas_context_t *ctx) {
           uint8_t rstval[] = {0, 8, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38};
           char *strval = int_to_hex(rstval[node->args[i].value % 8], false);
           column += disas_printf(ctx, "%s", strval);
-          free(strval);
+          xfree(strval);
           break;
         }
 

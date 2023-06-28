@@ -3,6 +3,7 @@
     #include <stdio.h>
     #include <setjmp.h>
 
+    #include "mmgr.h"
     #include "dynarray.h"
     #include "parse.h"
     #include "libasm80.h"
@@ -52,7 +53,7 @@ str
       : T_STR {
         LITERAL *l = make_node(LITERAL, @1.first_line);
         l->kind = STR;
-        l->strval = strdup($1);
+        l->strval = $1;
         $$ = (parse_node *)l;
       }
       ;
@@ -77,7 +78,7 @@ dollar
 id
       : T_ID {
         ID *l = make_node(ID, @1.first_line);
-        l->name = strdup($1);
+        l->name = $1;
         l->is_ref = false;
         $$ = (parse_node *)l;
       }

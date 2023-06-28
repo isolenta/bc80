@@ -71,7 +71,9 @@ int main(int argc, char **argv) {
   uint32_t dest_size = 0;
   struct libasm80_as_desc_t desc;
 
-  defineopts = hashmap_create(128);
+  mmgr_init();
+
+  defineopts = hashmap_create(128, "defineopts");
 
   opterr = 0;
 
@@ -80,16 +82,16 @@ int main(int argc, char **argv) {
       case 'D': {
         dynarray *kvparts = split_string_sep(optarg, '=', true);
         hashmap_search(defineopts, dinitial(kvparts), HASHMAP_INSERT,
-          (dynarray_length(kvparts) == 1) ? strdup("") : strdup(dsecond(kvparts)));
+          (dynarray_length(kvparts) == 1) ? xstrdup("") : xstrdup(dsecond(kvparts)));
         break;
       }
 
       case 'I':
-        includeopts = dynarray_append_ptr(includeopts, strdup(optarg));
+        includeopts = dynarray_append_ptr(includeopts, xstrdup(optarg));
         break;
 
       case 'o':
-        outfile = strdup(optarg);
+        outfile = xstrdup(optarg);
         break;
 
       case 't':
@@ -112,7 +114,7 @@ int main(int argc, char **argv) {
   }
 
   if (argc - optind >= 1)
-    infile = strdup(argv[optind]);
+    infile = xstrdup(argv[optind]);
 
   if (infile == NULL) {
     fprintf(stderr, "error: no input file specified\n\n");
@@ -138,7 +140,7 @@ int main(int argc, char **argv) {
     goto out;
   }
 
-  source = (char *)malloc(filesize + 1);
+  source = (char *)xmalloc(filesize + 1);
 
   sret = fread(source, filesize, 1, fin);
   if (sret != 1) {
@@ -181,15 +183,17 @@ out:
     fclose(fin);
 
   if (source)
-    free(source);
+    xfree(source);
 
   if (destination)
-    free(destination);
+    xfree(destination);
 
-  free(outfile);
-  free(infile);
+  xfree(outfile);
+  xfree(infile);
   hashmap_free(defineopts);
   dynarray_free_deep(includeopts);
+
+  mmgr_finish(getenv("MEMSTAT") != NULL);
 
   return ret;
 }

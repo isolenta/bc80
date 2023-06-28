@@ -2,6 +2,7 @@
   #include <ctype.h>
   #include <stdio.h>
 
+  #include "mmgr.h"
   #include "parse.h"
   #include "parser.tab.h"
 
@@ -59,18 +60,18 @@ intnum  ({decnum}|{hexnum}|{binnum})
 
 
 {id}      {
-  yylval.str = strdup(yytext);
+  yylval.str = xstrdup(yytext);
   return T_ID;
 }
 
 (?i:af)'  {
   /* special rule for shadow register pair af: don't confuse with string literal */
-  yylval.str = strdup(yytext);
+  yylval.str = xstrdup(yytext);
   return T_ID;
 }
 
 {string}  {
-  char *tmp = strdup(yytext);
+  char *tmp = xstrdup(yytext);
 
   tmp[strlen(tmp) - 1] = '\0';
   yylval.str = tmp + 1;

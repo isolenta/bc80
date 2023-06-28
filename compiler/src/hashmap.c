@@ -9,7 +9,8 @@
 // This statement doesn't apply to keys: hashmap will release keys properly.
 // In the current implementation this structure will leak during update and delete.
 
-static uint32_t str_hash(char *str) {
+static uint32_t hashmap_default_hash(hashmap *hm, void *key) {
+  char *str = (char *)key;
   uint32_t hash = 37;
 
   while (*str) {
@@ -20,20 +21,67 @@ static uint32_t str_hash(char *str) {
   return hash % 86969;
 }
 
-hashmap *hashmap_create(uint32_t num_entries) {
-  hashmap *hm = (hashmap *)malloc(sizeof(hashmap));
+static void *hashmap_default_alloc(hashmap *hm, size_t size) {
+  return xmalloc__(size, hm ? hm->name : "");
+}
 
+static void hashmap_default_free(hashmap *hm, void *ptr) {
+  return xfree(ptr);
+}
+
+static void *hashmap_default_key_copy(hashmap *hm, void *key) {
+  return (void *)xstrdup((const char *)key);
+}
+
+static int hashmap_default_key_compare(hashmap *hm, void *key1, void *key2) {
+  return strcmp((const char *)key1, (const char *)key2);
+}
+
+hashmap *hashmap_create_ex(uint32_t num_entries, const char *name, alloc_fn_type alloc_fn, free_fn_type free_fn) {
+  alloc_fn_type init_alloc_fn = hashmap_default_alloc;
+  free_fn_type init_free_fn = hashmap_default_free;
+
+  if (alloc_fn != NULL)
+    init_alloc_fn = alloc_fn;
+
+  if (free_fn != NULL)
+    init_free_fn = free_fn;
+
+  hashmap *hm = (hashmap *)init_alloc_fn(NULL, sizeof(hashmap));
+
+  hm->name = name;
   hm->num_entries = num_entries;
-  hm->hashtab = (hashmap_entry *)malloc(num_entries * sizeof(hashmap_entry));
+  hm->hashtab = (hashmap_entry *)init_alloc_fn(hm, num_entries * sizeof(hashmap_entry));
   memset(hm->hashtab, 0, num_entries * sizeof(hashmap_entry));
+
+  // default helper function for standard memory manager and cstring keys
+  hm->alloc_fn = init_alloc_fn;
+  hm->free_fn = init_free_fn;
+
+  hm->key_copy_fn = hashmap_default_key_copy;
+  hm->key_compare_fn = hashmap_default_key_compare;
+  hm->hash_fn = hashmap_default_hash;
 
   return hm;
 }
 
-void *hashmap_search(hashmap *hm, char *key, int op, void *value) {
+void hashmap_set_functions(hashmap *hm,
+                            alloc_fn_type alloc_fn,
+                            free_fn_type free_fn,
+                            key_copy_fn_type key_copy_fn,
+                            key_compare_fn_type key_compare_fn,
+                            hash_fn_type hash_fn) {
+  hm->alloc_fn = alloc_fn;
+  hm->free_fn = free_fn;
+  hm->key_copy_fn = key_copy_fn;
+  hm->key_compare_fn = key_compare_fn;
+  hm->hash_fn = hash_fn;
+}
+
+void *hashmap_search(hashmap *hm, void *key, int op, void *value) {
   assert((op == HASHMAP_FIND) || (op == HASHMAP_REMOVE) || (op == HASHMAP_INSERT));
 
-  uint32_t hash = str_hash(key);
+  uint32_t hash = hm->hash_fn(hm, key);
   hashmap_entry *entry = &hm->hashtab[hash % hm->num_entries];
 
   if (entry->key == NULL) {
@@ -42,36 +90,37 @@ void *hashmap_search(hashmap *hm, char *key, int op, void *value) {
       return NULL;
 
     // for HASHMAP_INSERT just place the value here
-    entry->key = strdup(key);
+    entry->key = hm->key_copy_fn(hm, key);
     entry->value = value;
     entry->next = NULL;
     return entry->value;
   } else {
     // bucket is already occupied
-    if (strcmp(entry->key, key) == 0) {
+    if (hm->key_compare_fn(hm, entry->key, key) == 0) {
       // we are found our key
       if (op == HASHMAP_FIND)
         return entry->value;
 
       if (op == HASHMAP_REMOVE) {
+        void *old_value = entry->value;
         if (entry->next != NULL) {
           hashmap_entry *tmp_entry = entry->next;
 
-          free(entry->key);
+          hm->free_fn(hm, entry->key);
           entry->key = tmp_entry->key;
           entry->value = tmp_entry->value;
           entry->next = tmp_entry->next;
-          free(tmp_entry);
+          hm->free_fn(hm, tmp_entry);
         } else {
-          free(entry->key);
+          hm->free_fn(hm, entry->key);
           entry->key = NULL;
           entry->value = NULL;
         }
-        return NULL;
+        return old_value;
       }
 
       // for HASHMAP_INSERT replace value for found key
-      free(entry->value);
+      hm->free_fn(hm, entry->value);
       entry->value = value;
       return entry->value;
     } else {
@@ -81,17 +130,19 @@ void *hashmap_search(hashmap *hm, char *key, int op, void *value) {
 
       while (entry->next != NULL) {
         entry = entry->next;
-        if (strcmp(entry->key, key) == 0) {
+        if (hm->key_compare_fn(hm, entry->key, key) == 0) {
           // we are found our key
-          if (op == HASHMAP_FIND)
+          if (op == HASHMAP_FIND) {
             return entry->value;
+          }
 
           if (op == HASHMAP_REMOVE) {
-            free(entry->key);
+            void *old_value = entry->value;
+            hm->free_fn(hm, entry->key);
 
             parent->next = entry->next;
-            free(entry);
-            return NULL;
+            hm->free_fn(hm, entry);
+            return old_value;
           }
 
           // for HASHMAP_INSERT replace value for found key
@@ -107,8 +158,8 @@ void *hashmap_search(hashmap *hm, char *key, int op, void *value) {
         return NULL;
 
       // for HASHMAP_INSERT allocate new entry in the list and place value here
-      entry->next = malloc(sizeof(hashmap_entry));
-      entry->next->key = strdup(key);
+      entry->next = hm->alloc_fn(hm, sizeof(hashmap_entry));
+      entry->next->key = hm->key_copy_fn(hm, key);
       entry->next->value = value;
       entry->next->next = NULL;
       return entry->next->value;
@@ -120,62 +171,64 @@ void *hashmap_search(hashmap *hm, char *key, int op, void *value) {
 }
 
 void hashmap_free(hashmap *hm) {
+  free_fn_type free_fn = hm->free_fn;
+
   for (int i = 0; i < hm->num_entries; i++) {
     hashmap_entry *entry = &hm->hashtab[i];
 
-    free(entry->key);
+    free_fn(hm, entry->key);
 
     while (entry->next != NULL) {
       entry = entry->next;
-      free(entry->key);
+      free_fn(hm, entry->key);
     }
   }
-  free(hm->hashtab);
-  free(hm);
+  free_fn(hm, hm->hashtab);
+  free_fn(hm, hm);
 }
 
 hashmap_scan *hashmap_scan_init(hashmap *hm) {
-  hashmap_scan *scan = (hashmap_scan *)malloc(sizeof(hashmap_scan));
+  hashmap_scan *scan = (hashmap_scan *)hm->alloc_fn(hm, sizeof(hashmap_scan));
 
   scan->hm = hm;
   scan->current_bucket = 0;
-  scan->current_entry = NULL;
+  scan->current_entry = &scan->hm->hashtab[scan->current_bucket];
 
   return scan;
 }
 
 hashmap_entry *hashmap_scan_next(hashmap_scan *scan) {
+  free_fn_type free_fn = scan->hm->free_fn;
+
   while (1) {
-    if ((scan->current_bucket >= scan->hm->num_entries) && (scan->current_entry == NULL)) {
-      free(scan);
+    if (scan->current_bucket == scan->hm->num_entries) {
+      free_fn(scan->hm, scan);
       return NULL;
     }
 
-    if (scan->current_entry != NULL) {
-      hashmap_entry *entry = scan->current_entry->next;
-      scan->current_entry = entry;
+    if (scan->current_entry != NULL && scan->current_entry->key != NULL) {
+      hashmap_entry *result = scan->current_entry;
 
-      if (entry != NULL)
-        return entry;
+      if (scan->current_entry->next != NULL) {
+        scan->current_entry = scan->current_entry->next;
+      } else {
+        scan->current_bucket++;
+        scan->current_entry = &scan->hm->hashtab[scan->current_bucket];
+      }
 
-      scan->current_bucket++;
+      return result;
     }
 
-    hashmap_entry *entry = &scan->hm->hashtab[scan->current_bucket];
-
-    if (entry->key != NULL) {
-      if (entry->next != NULL)
-        scan->current_entry = entry;
-      else
-        scan->current_bucket++;
-
-      return entry;
+    if (scan->current_entry->next != NULL) {
+      scan->current_entry = scan->current_entry->next;
     } else {
       scan->current_bucket++;
+      scan->current_entry = &scan->hm->hashtab[scan->current_bucket];
     }
   }
 }
 
 void hashmap_scan_free(hashmap_scan *scan) {
-  free(scan);
+  free_fn_type free_fn = scan->hm->free_fn;
+  free_fn(scan->hm, scan);
 }

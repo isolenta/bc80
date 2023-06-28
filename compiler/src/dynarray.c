@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include "dynarray.h"
+#include "mmgr.h"
 
 // Overhead for the fixed part of a dynarray header, measured in dynarray_cells
 #define DYNARRAY_HEADER_OVERHEAD  \
@@ -72,7 +73,7 @@ static dynarray *new_dynarray(int type, int min_size)
   max_size = nextpower2_32(Max(8, min_size + DYNARRAY_HEADER_OVERHEAD));
   max_size -= DYNARRAY_HEADER_OVERHEAD;
 
-  darray = (dynarray *) malloc(offsetof(dynarray, initial_elements) +
+  darray = (dynarray *) xmalloc(offsetof(dynarray, initial_elements) +
                 max_size * sizeof(dynarray_cell));
   darray->type = type;
   darray->length = min_size;
@@ -100,12 +101,12 @@ enlarge_dynarray(dynarray *darray, int min_size)
   if (darray->elements == darray->initial_elements)
   {
     // Replace original in-line allocation with a separate malloc block.
-    darray->elements = (dynarray_cell *)malloc(new_max_len * sizeof(dynarray_cell));
+    darray->elements = (dynarray_cell *)xmalloc(new_max_len * sizeof(dynarray_cell));
     memcpy(darray->elements, darray->initial_elements, darray->length * sizeof(dynarray_cell));
   }
   else
   {
-    darray->elements = (dynarray_cell *) realloc(darray->elements, new_max_len * sizeof(dynarray_cell));
+    darray->elements = (dynarray_cell *) xrealloc(darray->elements, new_max_len * sizeof(dynarray_cell));
   }
 
   darray->max_length = new_max_len;
@@ -163,11 +164,11 @@ static void dynarray_free_private(dynarray *darray, bool deep)
   if (deep)
   {
     for (int i = 0; i < darray->length; i++)
-      free(dfirst(&darray->elements[i]));
+      xfree(dfirst(&darray->elements[i]));
   }
   if (darray->elements != darray->initial_elements)
-    free(darray->elements);
-  free(darray);
+    xfree(darray->elements);
+  xfree(darray);
 }
 
 // Free all the cells of the dynarray, as well as the dynarray itself. Any

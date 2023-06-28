@@ -437,7 +437,7 @@ int parse_string(struct libasm80_as_desc_t *desc, dynarray **statements, jmp_buf
   g_includeopts = desc->includeopts;
 
   size_t len = strlen(desc->source);
-  data = (char *)malloc(len + 2);
+  data = (char *)xmalloc(len + 2);
   strcpy(data, desc->source);
 
   // add extra NL for correct parsing
@@ -450,7 +450,7 @@ int parse_string(struct libasm80_as_desc_t *desc, dynarray **statements, jmp_buf
   yy_delete_buffer(buffer, scanner);
   yylex_destroy(scanner);
 
-  free(data);
+  xfree(data);
 
   return result;
 }
@@ -466,7 +466,7 @@ int parse_integer(struct libasm80_as_desc_t *desc, char *text, int len, int base
   else if ((text[0] == '0') && (text[1] == 'x'))
     tmp = text + 2;
   else if (text[len-1] == tolower(suffix) || text[len-1] == toupper(suffix)) {
-    tmp = strdup(text);
+    tmp = xstrdup(text);
     tmp[len-1] = 0;
   }
 
@@ -475,7 +475,7 @@ int parse_integer(struct libasm80_as_desc_t *desc, char *text, int len, int base
     if (desc->error_cb) {
       char *msg = bsprintf("error parse decimal integer: %s", text);
       int err_cb_ret = desc->error_cb(msg, 0);
-      free(msg);
+      xfree(msg);
       if (err_cb_ret != 0)
         longjmp(*parse_env, 1);
     } else {
@@ -494,7 +494,7 @@ int parse_binary(struct libasm80_as_desc_t *desc, char *text, int len, jmp_buf *
   } else if ((text[0] == '0') && (text[1] == 'b')) {
     tmp = text + 2;
   } else if (tolower(text[len-1]) == 'b') {
-    tmp = strdup(text);
+    tmp = xstrdup(text);
     tmp[len - 1] = '\0';
   }
 
@@ -506,7 +506,7 @@ int parse_binary(struct libasm80_as_desc_t *desc, char *text, int len, jmp_buf *
     if (desc->error_cb) {
       char *msg = bsprintf("error parse binary integer: %s", text);
       int err_cb_ret = desc->error_cb(msg, 0);
-      free(msg);
+      xfree(msg);
       if (err_cb_ret != 0)
         longjmp(*parse_env, 1);
     } else {
@@ -541,7 +541,7 @@ int parse_include(struct libasm80_as_desc_t *desc, dynarray **statements, char *
     if (desc->error_cb) {
       char *msg = bsprintf("file not found: %s", filename);
       ret = desc->error_cb(msg, line);
-      free(msg);
+      xfree(msg);
     }
 
     goto out;
@@ -553,19 +553,19 @@ int parse_include(struct libasm80_as_desc_t *desc, dynarray **statements, char *
     if (desc->error_cb) {
       char *msg = bsprintf("%s: %s", path, strerror(errno));
       ret = desc->error_cb(msg, line);
-      free(msg);
+      xfree(msg);
     }
     goto out;
   }
 
-  source = (char *)malloc(sz);
+  source = (char *)xmalloc(sz);
 
   sz = fread(source, sz, 1, fp);
   if (sz != 1) {
     if (desc->error_cb) {
       char *msg = bsprintf("%s: %s", path, strerror(errno));
       ret = desc->error_cb(msg, line);
-      free(msg);
+      xfree(msg);
     }
     goto out;
   }
@@ -578,7 +578,7 @@ int parse_include(struct libasm80_as_desc_t *desc, dynarray **statements, char *
 
 out:
   if (source)
-    free(source);
+    xfree(source);
   if (fp)
     fclose(fp);
 

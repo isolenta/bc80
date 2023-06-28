@@ -9,6 +9,7 @@
 #include <limits.h>
 
 #include "parse.h"
+#include "mmgr.h"
 
 #define Max(x, y)   ((x) > (y) ? (x) : (y))
 

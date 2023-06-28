@@ -7,6 +7,7 @@
 #include <ctype.h>
 
 #include "libasm80.h"
+#include "mmgr.h"
 #include "disas.h"
 
 static void print_usage(char *cmd) {
@@ -54,6 +55,8 @@ int main(int argc, char **argv) {
   FILE *fin = NULL;
   struct libasm80_disas_desc_t desc;
 
+  mmgr_init();
+
   memset(&desc, 0, sizeof(desc));
 
   desc.opt_addr = true;
@@ -94,7 +97,7 @@ int main(int argc, char **argv) {
   }
 
   if (argc - optind >= 1)
-    infile = strdup(argv[optind]);
+    infile = xstrdup(argv[optind]);
 
   if (!infile) {
     print_usage(argv[0]);
@@ -112,7 +115,7 @@ int main(int argc, char **argv) {
   fseek(fin, 0, SEEK_SET);
 
 
-  desc.data = (char *)malloc(desc.data_size);
+  desc.data = (char *)xmalloc(desc.data_size);
 
   ret = fread(desc.data, desc.data_size, 1, fin);
   if (ret != 1) {
@@ -122,16 +125,18 @@ int main(int argc, char **argv) {
 
   char *result = libasm80_disas(&desc);
   printf("%s\n", result);
-  free(result);
+  xfree(result);
 
 out:
   if (fin)
     fclose(fin);
 
   if (desc.data)
-    free(desc.data);
+    xfree(desc.data);
 
-  free(infile);
+  xfree(infile);
+
+  mmgr_finish(getenv("MEMSTAT") != NULL);
 
   return 0;
 }
