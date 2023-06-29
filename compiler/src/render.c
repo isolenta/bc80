@@ -175,9 +175,6 @@ void render_4bytes(compile_ctx_t *ctx, char b1, char b2, char b3, char b4) {
 void render_word(compile_ctx_t *ctx, int ival) {
   section_ctx_t *section = get_current_section(ctx);
 
-  if (ival != (ival & 0xFFFF))
-    report_warning(ctx, "integer value %d was cropped to 16 bit size: %d applied\n", ival, ival & 0xFFFF);
-
   buffer_append_char(section->content, ival & 0xff);
   buffer_append_char(section->content, (ival >> 8) & 0xff);
   section->curr_pc += 2;
