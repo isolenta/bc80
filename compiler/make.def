@@ -1,0 +1,12 @@
+TOPDIR := /Users/isolenta/bc80/compiler
+
+BISON := /opt/homebrew/opt/bison/bin/bison
+FLEX := /opt/homebrew/opt/flex/bin/flex
+#CC := /opt/homebrew/bin/gcc-13
+CC := gcc
+
+OBJDIR := .obj
+
+CFLAGS := -g -ggdb -O0 -fno-omit-frame-pointer -std=c11 \
+					-I$(TOPDIR) -I$(TOPDIR)/common
+LDFLAGS :=

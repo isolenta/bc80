@@ -6,15 +6,15 @@
     #include "mmgr.h"
     #include "dynarray.h"
     #include "parse.h"
-    #include "libasm80.h"
+    #include "libasm.h"
 
-    #define YY_DECL int yylex (yyscan_t yyscanner, struct libasm80_as_desc_t *desc, jmp_buf *parse_env)
+    #define YY_DECL int yylex (yyscan_t yyscanner, struct libasm_as_desc_t *desc, jmp_buf *parse_env)
     #include "parser.tab.h"
     #include "lexer.yy.h"
 
-    extern int yylex (yyscan_t yyscanner, struct libasm80_as_desc_t *desc, jmp_buf *parse_env);
+    extern int yylex (yyscan_t yyscanner, struct libasm_as_desc_t *desc, jmp_buf *parse_env);
 
-    void yyerror(yyscan_t scanner, dynarray **statements, struct libasm80_as_desc_t *desc, jmp_buf *parse_env, const char *msg) {
+    void yyerror(yyscan_t scanner, dynarray **statements, struct libasm_as_desc_t *desc, jmp_buf *parse_env, const char *msg) {
       (void)scanner;
       (void)statements;
 
@@ -26,8 +26,8 @@
     }
 %}
 
-%lex-param {void* scanner}{struct libasm80_as_desc_t *desc}{jmp_buf *parse_env}
-%parse-param {void* scanner}{dynarray **statements}{struct libasm80_as_desc_t *desc}{jmp_buf *parse_env}
+%lex-param {void* scanner}{struct libasm_as_desc_t *desc}{jmp_buf *parse_env}
+%parse-param {void* scanner}{dynarray **statements}{struct libasm_as_desc_t *desc}{jmp_buf *parse_env}
 
 %union {
   char *str;

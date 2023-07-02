@@ -11,7 +11,7 @@
 #include "common.h"
 #include "dynarray.h"
 #include "hashmap.h"
-#include "libasm80.h"
+#include "libasm.h"
 
 #include "parse.h"
 #include "compile.h"
@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
   char *source = NULL;
   char *destination = NULL;
   uint32_t dest_size = 0;
-  struct libasm80_as_desc_t desc;
+  struct libasm_as_desc_t desc;
 
   mmgr_init();
 
@@ -160,7 +160,7 @@ int main(int argc, char **argv) {
   desc.dest = &destination;
   desc.dest_size = &dest_size;
 
-  ret = libasm80_as(&desc);
+  ret = libasm_as(&desc);
 
   fout = fopen(outfile, "w");
   if (!fout) {

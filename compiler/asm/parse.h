@@ -142,14 +142,14 @@ extern parse_node *new_node_macro_holder;
 
 typedef struct dynarray dynarray;
 typedef struct hashmap hashmap;
-struct libasm80_as_desc_t;
+struct libasm_as_desc_t;
 
 extern void print_node(parse_node *node);
 extern char *node_to_string(parse_node *node);
-extern int parse_integer(struct libasm80_as_desc_t *desc, char *text, int len, int base, char suffix, jmp_buf *parse_env);
-extern int parse_binary(struct libasm80_as_desc_t *desc, char *text, int len, jmp_buf *parse_env);
-extern int parse_include(struct libasm80_as_desc_t *desc, dynarray **statements, char *filename, int line, jmp_buf *parse_env);
+extern int parse_integer(struct libasm_as_desc_t *desc, char *text, int len, int base, char suffix, jmp_buf *parse_env);
+extern int parse_binary(struct libasm_as_desc_t *desc, char *text, int len, jmp_buf *parse_env);
+extern int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *filename, int line, jmp_buf *parse_env);
 extern void parse_print(dynarray *statements);
-extern int parse_string(struct libasm80_as_desc_t *desc, dynarray **statements, jmp_buf *parse_env);
+extern int parse_string(struct libasm_as_desc_t *desc, dynarray **statements, jmp_buf *parse_env);
 extern const char *get_parse_node_name(parse_node *node);
 extern const char *get_literal_kind(LITERAL *l);

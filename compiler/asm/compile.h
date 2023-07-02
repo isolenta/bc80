@@ -1,8 +1,11 @@
 #pragma once
 
+#include <setjmp.h>
+
 #include "common.h"
+#include "parse.h"
 #include "buffer.h"
-#include "libasm80.h"
+#include "libasm.h"
 
 typedef struct {
   uint32_t start;
@@ -35,7 +38,7 @@ typedef struct {
 } patch_t;
 
 extern parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar);
-extern int compile(struct libasm80_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_env);
+extern int compile(struct libasm_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_env);
 extern void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args);
 extern void report_error(compile_ctx_t *ctx, char *fmt, ...);
 extern void report_warning(compile_ctx_t *ctx, char *fmt, ...);

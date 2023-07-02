@@ -7,6 +7,7 @@
 #define HASHMAP_REMOVE 2
 
 typedef struct hashmap_entry hashmap_entry;
+typedef struct hashmap hashmap;
 
 typedef void *(*alloc_fn_type)(hashmap *hm, size_t size);
 typedef void (*free_fn_type)(hashmap *hm, void *ptr);

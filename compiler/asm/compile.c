@@ -252,7 +252,7 @@ static hashmap *make_symtab(hashmap *defineopts) {
   return symtab;
 }
 
-int compile(struct libasm80_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_env) {
+int compile(struct libasm_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_env) {
   dynarray_cell *dc = NULL;
 
   compile_ctx_t compile_ctx;

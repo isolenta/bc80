@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "libasm80.h"
+#include "libasm.h"
 #include "buffer.h"
 #include "parse.h"
 #include "filesystem.h"
@@ -428,7 +428,7 @@ char *node_to_string(parse_node *node) {
   return buf->data;
 }
 
-int parse_string(struct libasm80_as_desc_t *desc, dynarray **statements, jmp_buf *parse_env) {
+int parse_string(struct libasm_as_desc_t *desc, dynarray **statements, jmp_buf *parse_env) {
   struct yy_buffer_state *buffer;
   yyscan_t scanner;
   int result;
@@ -455,7 +455,7 @@ int parse_string(struct libasm80_as_desc_t *desc, dynarray **statements, jmp_buf
   return result;
 }
 
-int parse_integer(struct libasm80_as_desc_t *desc, char *text, int len, int base, char suffix, jmp_buf *parse_env) {
+int parse_integer(struct libasm_as_desc_t *desc, char *text, int len, int base, char suffix, jmp_buf *parse_env) {
   int result;
   char *tmp, *endptr;
 
@@ -486,7 +486,7 @@ int parse_integer(struct libasm80_as_desc_t *desc, char *text, int len, int base
   return result;
 }
 
-int parse_binary(struct libasm80_as_desc_t *desc, char *text, int len, jmp_buf *parse_env) {
+int parse_binary(struct libasm_as_desc_t *desc, char *text, int len, jmp_buf *parse_env) {
   char *tmp;
 
   if (text[0] == '%') {
@@ -528,13 +528,13 @@ void parse_print(dynarray *statements) {
   }
 }
 
-int parse_include(struct libasm80_as_desc_t *desc, dynarray **statements, char *filename, int line, jmp_buf *parse_env) {
+int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *filename, int line, jmp_buf *parse_env) {
   int ret = 0;
   size_t sz;
   FILE *fp = NULL;
   char *path;
   char *source = NULL;
-  struct libasm80_as_desc_t desc_subtree;
+  struct libasm_as_desc_t desc_subtree;
 
   path = fs_abs_path(filename, g_includeopts);
   if (path == NULL) {
@@ -571,7 +571,7 @@ int parse_include(struct libasm80_as_desc_t *desc, dynarray **statements, char *
   }
 
   if (ret == 0) {
-    memcpy(&desc_subtree, desc, sizeof(struct libasm80_as_desc_t));
+    memcpy(&desc_subtree, desc, sizeof(struct libasm_as_desc_t));
     desc_subtree.source = source;
     ret = parse_string(&desc_subtree, statements, parse_env);
   }

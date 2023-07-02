@@ -12,7 +12,7 @@ MY_AS=${DIRNAME}/as
 MY_DISAS=${DIRNAME}/disas
 EXT_AS=z80asm
 
-INPUTDIR=${DIRNAME}/asmtests
+INPUTDIR=${DIRNAME}/tests
 LOGFILE=${DIRNAME}/test.log
 
 rm -rf $TMPDIR

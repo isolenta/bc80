@@ -6,7 +6,6 @@
 
 #include "common.h"
 #include "dynarray.h"
-#include "parse.h"
 
 dynarray *split_string_sep(char *str, char sep, bool first) {
   dynarray *darray = NULL;

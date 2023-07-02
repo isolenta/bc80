@@ -7,7 +7,7 @@
   #include "parser.tab.h"
 
   #define YY_USER_ACTION yylloc.first_line = yylloc.last_line = yylineno;
-  #define YY_DECL int yylex (yyscan_t yyscanner, struct libasm80_as_desc_t *desc, jmp_buf *parse_env)
+  #define YY_DECL int yylex (yyscan_t yyscanner, struct libasm_as_desc_t *desc, jmp_buf *parse_env)
 %}
 
 %option noyywrap

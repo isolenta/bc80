@@ -17,4 +17,4 @@ ds 50
 ds 100,0
 ds 200,55h
 
-incbin 'asmtests/001_noarg.asm'
+incbin 'tests/001_noarg.asm'

@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#include "libasm80.h"
+#include "libasm.h"
 #include "mmgr.h"
 #include "disas.h"
 
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
   char *infile = NULL;
   size_t ret;
   FILE *fin = NULL;
-  struct libasm80_disas_desc_t desc;
+  struct libasm_disas_desc_t desc;
 
   mmgr_init();
 
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
     goto out;
   }
 
-  char *result = libasm80_disas(&desc);
+  char *result = libasm_disas(&desc);
   printf("%s\n", result);
   xfree(result);
 
