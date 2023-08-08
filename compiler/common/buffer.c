@@ -29,6 +29,9 @@ char *buffer_dup(buffer *buf) {
 
   assert(buf != NULL);
 
+  if (buf->len == 0)
+    return NULL;
+
   result = xmalloc(buf->len);
   memcpy(result, buf->data, buf->len);
 
@@ -113,6 +116,26 @@ int buffer_append(buffer *buf, const char *fmt, ...)
   return start;
 }
 
+int buffer_appendv(buffer *buf, const char *fmt, va_list args)
+{
+  int start = buf->len;
+
+  for (;;)
+  {
+    int needed;
+
+    needed = buffer_append_va(buf, fmt, args);
+
+    if (needed == 0)
+      break;
+
+    // Increase the buffer size and try again.
+    buffer_enlarge(buf, needed);
+  }
+
+  return start;
+}
+
 int buffer_append_binary(buffer *buf, const char *data, int datalen)
 {
   assert(buf != NULL);
@@ -156,7 +179,7 @@ char *bsprintf(const char *fmt, ...) {
   va_list args;
 
   va_start(args, fmt);
-  buffer_append(buf, fmt, args);
+  buffer_appendv(buf, fmt, args);
   va_end(args);
 
   result = buffer_dup(buf);

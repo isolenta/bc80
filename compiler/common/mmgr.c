@@ -127,6 +127,9 @@ void xfree_(void *ptr, const char *file, int line) {
 }
 
 char *xstrdup_(const char *str, const char *file, int line) {
+  if (str == NULL)
+    return NULL;
+
   char *newstr = xmalloc_(strlen(str), "", file, line);
   strcpy(newstr, str);
   return newstr;

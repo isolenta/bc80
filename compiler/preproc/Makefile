@@ -2,13 +2,13 @@ include ../make.def
 
 all: cpp
 
-CPP_OBJS := cpp.o
+CPP_OBJS := cpp.o scan.o error.o
 CPP_OBJS := $(addprefix $(OBJDIR)/, $(CPP_OBJS))
-CPP_DEPS := $(addprefix $(OBJDIR)/, $(CPP_DEPS:%.o=%.d))
+CPP_DEPS := $(CPP_OBJS:%.o=%.d)
 
 -include $(CPP_DEPS)
 
-CFLAGS += -I$(TOPDIR)/cpp -I$(TOPDIR)/cpp/$(OBJDIR)
+CFLAGS += -I$(TOPDIR)/preproc -I$(TOPDIR)/preproc/$(OBJDIR)
 
 $(TOPDIR)/common/libcommon.a:
 	make -C $(TOPDIR)/common
