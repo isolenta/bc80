@@ -16,13 +16,14 @@ typedef struct hashmap hashmap;
 // return value:
 //   0: continue processing (can be dangerous, compilation state can be corrupted after error)
 //   non zero: stop processing and return this code as result of libasm_as()
-typedef int (*error_callback_type) (const char *message, int line);
+typedef int (*error_callback_type) (const char *message, const char *filename, int line);
 
 // the same as error_callback_type but for non-critical warnings
-typedef void (*warning_callback_type) (const char *message, int line);
+typedef void (*warning_callback_type) (const char *message, const char *filename, int line);
 
 struct libasm_as_desc_t {
   char *source;                       // source text to assembly
+  char *filename;                     // name of source file (for error reporing only)
   dynarray *includeopts;              // array of directories where it should search files for 'include' and 'incbin' directives
   hashmap *defineopts;                // map (key-value) of predefined constants. Used to prepopulate symtab (the same as EQU expressions)
   int target;                         // output format, one of ASM_TARGET_RAW, ASM_TARGET_ELF

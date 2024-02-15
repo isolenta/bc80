@@ -157,6 +157,9 @@ void mmgr_finish(bool dump_stats) {
   while ((entry = hashmap_scan_next(scan)) != NULL) {
     struct alloc_entry *ae = (struct alloc_entry *)entry->value;
     total_deallocs++;
+    if (dump_stats)
+      printf("    post dealloc %lu bytes from %s:%d (%s)\n",
+        ae->size, ae->file, ae->line, ae->tag);
     free(ae->ptr);
   }
 

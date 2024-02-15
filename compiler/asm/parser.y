@@ -19,7 +19,7 @@
       (void)statements;
 
       if (desc->error_cb) {
-        int err_cb_ret = desc->error_cb(msg, yylloc.first_line + 1);
+        int err_cb_ret = desc->error_cb(msg, desc->filename, yylloc.first_line + 1);
         if (err_cb_ret != 0)
           longjmp(*parse_env, 1);
       }
@@ -51,7 +51,7 @@
 
 str
       : T_STR {
-        LITERAL *l = make_node(LITERAL, @1.first_line);
+        LITERAL *l = make_node(LITERAL, desc->filename, @1.first_line);
         l->kind = STR;
         l->strval = $1;
         $$ = (parse_node *)l;
@@ -60,7 +60,7 @@ str
 
 integer
       : T_INT {
-        LITERAL *l = make_node(LITERAL, @1.first_line);
+        LITERAL *l = make_node(LITERAL, desc->filename, @1.first_line);
         l->kind = INT;
         l->ival = $1;
         $$ = (parse_node *)l;
@@ -69,7 +69,7 @@ integer
 
 dollar
       : T_DOLLAR {
-        LITERAL *l = make_node(LITERAL, @1.first_line);
+        LITERAL *l = make_node(LITERAL, desc->filename, @1.first_line);
         l->kind = DOLLAR;
         $$ = (parse_node *)l;
       }
@@ -77,7 +77,7 @@ dollar
 
 id
       : T_ID {
-        ID *l = make_node(ID, @1.first_line);
+        ID *l = make_node(ID, desc->filename, @1.first_line);
         l->name = $1;
         l->is_ref = false;
         $$ = (parse_node *)l;
@@ -86,7 +86,7 @@ id
 
 simple_expr
       : id {
-        EXPR *l = make_node(EXPR, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = SIMPLE;
         l->is_ref = false;
         l->left = $1;
@@ -105,7 +105,7 @@ simple_expr
 unary_expr
       : simple_expr { $$ = $1; }
       | T_PLUS simple_expr {
-        EXPR *l = make_node(EXPR, @2.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @2.first_line);
         l->kind = UNARY_PLUS;
         l->is_ref = false;
         l->left = $2;
@@ -113,7 +113,7 @@ unary_expr
         $$ = (parse_node *)l;
       }
       | T_MINUS simple_expr {
-        EXPR *l = make_node(EXPR, @2.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @2.first_line);
         l->kind = UNARY_MINUS;
         l->is_ref = false;
         l->left = $2;
@@ -121,7 +121,7 @@ unary_expr
         $$ = (parse_node *)l;
       }
       | T_NOT simple_expr {
-        EXPR *l = make_node(EXPR, @2.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @2.first_line);
         l->kind = UNARY_NOT;
         l->is_ref = false;
         l->left = $2;
@@ -133,7 +133,7 @@ unary_expr
 expr
       : unary_expr { $$ = $1; }
       | unary_expr T_PLUS unary_expr {
-        EXPR *l = make_node(EXPR, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_PLUS;
         l->is_ref = false;
         l->left = $1;
@@ -141,7 +141,7 @@ expr
         $$ = (parse_node *)l;
       }
       | unary_expr T_MINUS unary_expr {
-        EXPR *l = make_node(EXPR, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_MINUS;
         l->is_ref = false;
         l->left = $1;
@@ -149,7 +149,7 @@ expr
         $$ = (parse_node *)l;
       }
       | unary_expr T_MUL unary_expr {
-        EXPR *l = make_node(EXPR, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_MUL;
         l->is_ref = false;
         l->left = $1;
@@ -157,7 +157,7 @@ expr
         $$ = (parse_node *)l;
       }
       | unary_expr T_DIV unary_expr {
-        EXPR *l = make_node(EXPR, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_DIV;
         l->is_ref = false;
         l->left = $1;
@@ -165,7 +165,7 @@ expr
         $$ = (parse_node *)l;
       }
       | unary_expr T_AND unary_expr {
-        EXPR *l = make_node(EXPR, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_AND;
         l->is_ref = false;
         l->left = $1;
@@ -173,7 +173,7 @@ expr
         $$ = (parse_node *)l;
       }
       | unary_expr T_OR unary_expr {
-        EXPR *l = make_node(EXPR, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_OR;
         l->is_ref = false;
         l->left = $1;
@@ -181,7 +181,7 @@ expr
         $$ = (parse_node *)l;
       }
       | unary_expr T_PERCENT unary_expr {
-        EXPR *l = make_node(EXPR, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_MOD;
         l->is_ref = false;
         l->left = $1;
@@ -189,7 +189,7 @@ expr
         $$ = (parse_node *)l;
       }
       | unary_expr T_SHL unary_expr {
-        EXPR *l = make_node(EXPR, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_SHL;
         l->is_ref = false;
         l->left = $1;
@@ -197,7 +197,7 @@ expr
         $$ = (parse_node *)l;
       }
       | unary_expr T_SHR unary_expr {
-        EXPR *l = make_node(EXPR, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_SHR;
         l->is_ref = false;
         l->left = $1;
@@ -207,7 +207,7 @@ expr
 
 exprlist
       : expr {
-        LIST *l = make_node(LIST, @1.first_line);
+        LIST *l = make_node(LIST, desc->filename, @1.first_line);
         l->list = NULL;
         l->list = dynarray_append_ptr(l->list, $1);
         $$ = (parse_node *)l;
@@ -220,7 +220,7 @@ exprlist
 
 label
       : id T_COLON {
-          LABEL *l = make_node(LABEL, @1.first_line);
+          LABEL *l = make_node(LABEL, desc->filename, @1.first_line);
           l->name = (ID *)$1;
           *statements = dynarray_append_ptr(*statements, l);
         }
@@ -228,28 +228,28 @@ label
 stmt
       : label
       | T_ORG expr {
-        ORG *l = make_node(ORG, @2.first_line);
+        ORG *l = make_node(ORG, desc->filename, @2.first_line);
         l->value = (parse_node *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_END {
-        END *l = make_node(END, @1.first_line);
+        END *l = make_node(END, desc->filename, @1.first_line);
         *statements = dynarray_append_ptr(*statements, l);
       }
       | id T_COLON T_EQU expr {
-        EQU *l = make_node(EQU, @1.first_line);
+        EQU *l = make_node(EQU, desc->filename, @1.first_line);
         l->name = (ID *)$1;
         l->value = (EXPR *)$4;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | id T_EQU expr {
-        EQU *l = make_node(EQU, @1.first_line);
+        EQU *l = make_node(EQU, desc->filename, @1.first_line);
         l->name = (ID *)$1;
         l->value = (EXPR *)$3;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_INCBIN str {
-        INCBIN *l = make_node(INCBIN, @1.first_line);
+        INCBIN *l = make_node(INCBIN, desc->filename, @1.first_line);
         l->filename = (LITERAL *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
@@ -259,42 +259,42 @@ stmt
           longjmp(*parse_env, 1);
       }
       | T_DB exprlist {
-        DEF *l = make_node(DEF, @1.first_line);
+        DEF *l = make_node(DEF, desc->filename, @1.first_line);
         l->kind = DEFKIND_DB;
         l->values = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_DM exprlist {
-        DEF *l = make_node(DEF, @1.first_line);
+        DEF *l = make_node(DEF, desc->filename, @1.first_line);
         l->kind = DEFKIND_DM;
         l->values = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_DW exprlist {
-        DEF *l = make_node(DEF, @1.first_line);
+        DEF *l = make_node(DEF, desc->filename, @1.first_line);
         l->kind = DEFKIND_DW;
         l->values = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_DS exprlist {
-        DEF *l = make_node(DEF, @1.first_line);
+        DEF *l = make_node(DEF, desc->filename, @1.first_line);
         l->kind = DEFKIND_DS;
         l->values = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_SECTION exprlist {
-        SECTION *l = make_node(SECTION, @1.first_line);
+        SECTION *l = make_node(SECTION, desc->filename, @1.first_line);
         l->args = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | id exprlist {
-        INSTR *l = make_node(INSTR, @1.first_line);
+        INSTR *l = make_node(INSTR, desc->filename, @1.first_line);
         l->name = (ID *)$1;
         l->args = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | id {
-        INSTR *l = make_node(INSTR, @1.first_line);
+        INSTR *l = make_node(INSTR, desc->filename, @1.first_line);
         l->name = (ID *)$1;
         l->args = NULL;
         *statements = dynarray_append_ptr(*statements, l);

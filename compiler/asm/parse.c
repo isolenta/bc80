@@ -474,7 +474,7 @@ int parse_integer(struct libasm_as_desc_t *desc, char *text, int len, int base, 
   if (endptr == tmp) {
     if (desc->error_cb) {
       char *msg = bsprintf("error parse decimal integer: %s", text);
-      int err_cb_ret = desc->error_cb(msg, 0);
+      int err_cb_ret = desc->error_cb(msg, NULL, 0);
       xfree(msg);
       if (err_cb_ret != 0)
         longjmp(*parse_env, 1);
@@ -505,7 +505,7 @@ int parse_binary(struct libasm_as_desc_t *desc, char *text, int len, jmp_buf *pa
   if (endptr == tmp) {
     if (desc->error_cb) {
       char *msg = bsprintf("error parse binary integer: %s", text);
-      int err_cb_ret = desc->error_cb(msg, 0);
+      int err_cb_ret = desc->error_cb(msg, NULL, 0);
       xfree(msg);
       if (err_cb_ret != 0)
         longjmp(*parse_env, 1);
@@ -522,7 +522,7 @@ void parse_print(dynarray *statements) {
 
   foreach(dc, statements) {
     parse_node *node = (parse_node *)dfirst(dc);
-    printf("%d: ", node->line);
+    printf("%s:%d: ", node->fn, node->line);
     print_node(node);
     printf("\n");
   }
@@ -540,7 +540,7 @@ int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *fi
   if (path == NULL) {
     if (desc->error_cb) {
       char *msg = bsprintf("file not found: %s", filename);
-      ret = desc->error_cb(msg, line);
+      ret = desc->error_cb(msg, NULL, line);
       xfree(msg);
     }
 
@@ -552,7 +552,7 @@ int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *fi
   if (!fp) {
     if (desc->error_cb) {
       char *msg = bsprintf("%s: %s", path, strerror(errno));
-      ret = desc->error_cb(msg, line);
+      ret = desc->error_cb(msg, NULL, line);
       xfree(msg);
     }
     goto out;
@@ -564,7 +564,7 @@ int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *fi
   if (sz != 1) {
     if (desc->error_cb) {
       char *msg = bsprintf("%s: %s", path, strerror(errno));
-      ret = desc->error_cb(msg, line);
+      ret = desc->error_cb(msg, NULL, line);
       xfree(msg);
     }
     goto out;
@@ -573,6 +573,7 @@ int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *fi
   if (ret == 0) {
     memcpy(&desc_subtree, desc, sizeof(struct libasm_as_desc_t));
     desc_subtree.source = source;
+    desc_subtree.filename = filename;
     ret = parse_string(&desc_subtree, statements, parse_env);
   }
 

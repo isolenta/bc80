@@ -9,7 +9,11 @@
 #define BUFFER_INIT_SIZE 1024
 
 buffer *buffer_init() {
-  buffer *buf = (buffer *)xmalloc(sizeof(buffer));
+  return buffer_init_ex("");
+}
+
+buffer *buffer_init_ex(const char *tag) {
+  buffer *buf = (buffer *)xmalloc2(sizeof(buffer), tag);
 
   buf->maxlen = BUFFER_INIT_SIZE;
   buf->data = (char *)xmalloc(buf->maxlen);

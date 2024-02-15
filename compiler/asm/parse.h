@@ -24,11 +24,14 @@ typedef enum parse_type
 typedef struct {
   parse_type type;
   uint32_t line;
+  char *fn;
   char data[0];
 } parse_node;
 
 typedef struct {
   parse_type type;
+  uint32_t line;
+  const char *fn;
   bool is_ref;
   char *name;
 } ID;
@@ -43,17 +46,23 @@ typedef enum
 
 typedef struct {
   parse_type type;
+  uint32_t line;
+  const char *fn;
   dynarray *list;
 } LIST;
 
 typedef struct {
   parse_type type;
+  uint32_t line;
+  const char *fn;
   defkind kind;
   LIST *values;
 } DEF;
 
 typedef struct {
   parse_type type;
+  uint32_t line;
+  const char *fn;
 } END;
 
 typedef enum
@@ -65,6 +74,8 @@ typedef enum
 
 typedef struct {
   parse_type type;
+  uint32_t line;
+  const char *fn;
   litkind kind;
   bool is_ref;
   char *strval;
@@ -90,6 +101,8 @@ typedef enum
 
 typedef struct {
   parse_type type;
+  uint32_t line;
+  const char *fn;
   exprkind kind;
   bool is_ref;
   parse_node *left;
@@ -98,47 +111,60 @@ typedef struct {
 
 typedef struct {
   parse_type type;
+  uint32_t line;
+  const char *fn;
   parse_node *value;
 } ORG;
 
 typedef struct {
   parse_type type;
+  uint32_t line;
+  const char *fn;
   LITERAL *filename;
 } INCBIN;
 
 typedef struct {
   parse_type type;
+  uint32_t line;
+  const char *fn;
   ID *name;
   EXPR *value;
 } EQU;
 
 typedef struct {
   parse_type type;
+  uint32_t line;
+  const char *fn;
   ID *name;
 } LABEL;
 
 typedef struct {
   parse_type type;
+  uint32_t line;
+  const char *fn;
   ID *name;
   LIST *args; // array of expressions
 } INSTR;
 
 typedef struct {
   parse_type type;
+  uint32_t line;
+  const char *fn;
   LIST *args;
 } SECTION;
 
 extern parse_node *new_node_macro_holder;
 
-#define new_node(size, t, loc) \
+#define new_node(size, t, fn_, loc) \
 ( \
   new_node_macro_holder = (parse_node *)xmalloc2(size, #t), \
   new_node_macro_holder->type = (t), \
   new_node_macro_holder->line = (loc)+1, \
+  new_node_macro_holder->fn = (fn_), \
   new_node_macro_holder \
 )
 
-#define make_node(t, loc)    ((t *) new_node(sizeof(t),NODE_##t,(loc)))
+#define make_node(t, fn, loc)    ((t *) new_node(sizeof(t), NODE_##t, (fn), (loc)))
 
 typedef struct dynarray dynarray;
 typedef struct hashmap hashmap;

@@ -33,24 +33,16 @@ static void print_usage(char *cmd) {
   );
 }
 
-static int error_cb(const char *message, int line) {
+static int error_cb(const char *message, const char *filename, int line) {
   fprintf(stderr, "\x1b[31m");
-  fprintf(stderr, "Error");
-  if (line)
-    fprintf(stderr, " at line %d: ", line);
-  else
-    fprintf(stderr, ": ");
+  fprintf(stderr, "Error in %s:%d: ", filename, line);
   fprintf(stderr, "%s\x1b[0m\n", message);
   return 1;
 }
 
-static void warning_cb(const char *message, int line) {
+static void warning_cb(const char *message, const char *filename, int line) {
   fprintf(stderr, "\x1b[33m");
-  fprintf(stderr, "Warning");
-  if (line)
-    fprintf(stderr, " at line %d: ", line);
-  else
-    fprintf(stderr, ": ");
+  fprintf(stderr, "Warning in %s:%d: ", filename, line);
   fprintf(stderr, "%s\x1b[0m\n", message);
 }
 
@@ -152,6 +144,7 @@ int main(int argc, char **argv) {
 
   memset(&desc, 0, sizeof(desc));
   desc.source = source;
+  desc.filename = infile;
   desc.includeopts = includeopts;
   desc.defineopts = defineopts;
   desc.target = target;
@@ -173,6 +166,7 @@ int main(int argc, char **argv) {
     if (sret != 1) {
       perror(outfile);
     }
+    printf("%u bytes written to %s\n", dest_size, outfile);
   }
 
 out:
