@@ -23,6 +23,7 @@ typedef struct {
   dynarray *sections;
   int curr_section_id;
   int target;
+  char *curr_global_label;
   error_callback_type error_cb;
   warning_callback_type warning_cb;
   jmp_buf *error_jmp_env;

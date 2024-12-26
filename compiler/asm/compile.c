@@ -482,16 +482,36 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_e
     }
 
     if (node->type == NODE_LABEL) {
+      char *label_name;
+
       section_ctx_t *section = get_current_section(&compile_ctx);
 
       // actually label definition is just alias of current offset in the output stream
       LABEL *label = (LABEL *)node;
 
+      label_name = label->name->name;
+
+      // local label is just concatenation with global label of current scope
+      if (label_name[0] == '.') {
+        if (compile_ctx.curr_global_label == NULL)
+          report_error(&compile_ctx, "can't assign local label '%s' without a global one", label_name);
+
+        label_name = bsprintf("%s%s", compile_ctx.curr_global_label, label_name);
+      } else {
+        // label is not local => remember as scope label
+        compile_ctx.curr_global_label = xstrdup(label_name);
+      }
+
+      // error out for label duplicates
+      void *node = hashmap_search(compile_ctx.symtab, label_name, HASHMAP_FIND, NULL);
+      if (node != NULL)
+        report_error(&compile_ctx, "duplicate label '%s'", label_name);
+
       LITERAL *cur_offset = make_node(LITERAL, NULL, 0);
       cur_offset->kind = INT;
       cur_offset->ival = section->curr_pc;
 
-      hashmap_search(compile_ctx.symtab, label->name->name, HASHMAP_INSERT, cur_offset);
+      hashmap_search(compile_ctx.symtab, label_name, HASHMAP_INSERT, cur_offset);
     }
 
     if (node->type == NODE_INSTR) {
@@ -501,7 +521,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_e
       char *name = name_id->name;
 
       // try to substitute instruction name from symtab
-      LITERAL *l = hashmap_search(compile_ctx.symtab, name_id->name, HASHMAP_FIND, NULL);
+      LITERAL *l = hashmap_search(compile_ctx.symtab, name, HASHMAP_FIND, NULL);
       if (l != NULL) {
         if (l->kind == STR)
           name = l->strval;
@@ -597,6 +617,14 @@ void register_fwd_lookup(compile_ctx_t *ctx,
                           bool relative,
                           uint32_t instr_pc) {
   patch_t *patch = (patch_t *)xmalloc(sizeof(patch_t));
+
+  if (unresolved_node->type == NODE_ID) {
+    ID *id = (ID *)unresolved_node;
+
+    if (id->name[0] == '.' && ctx->curr_global_label) {
+      id->name = bsprintf("%s%s", ctx->curr_global_label, id->name);
+    }
+  }
 
   patch->node = unresolved_node;
   patch->pos = pos;

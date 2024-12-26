@@ -20,10 +20,10 @@ ws            ({space}+)
 optws         [[:blank:]]*
 comment       ";"[^\n\r]*
 
-alpha   [A-Za-z_]
-hexchar [A-Fa-f]
-num     [0-9]
-id      {alpha}({alpha}|{num})*
+alpha         [A-Za-z_.]
+hexchar       [A-Fa-f]
+num           [0-9]
+id            {alpha}({alpha}|{num})*
 
 decnum  ({num}+|{num}+(d|D))
 hexnum1  ({num}|{hexchar})+(H|h)
