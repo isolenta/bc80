@@ -2,17 +2,17 @@ include ../make.def
 
 all: libasm.a as disas
 
-LIB_OBJS := libasm.o parse.o compile.o render.o instruction.o lexer.yy.o parser.tab.o disas_opcodes.o disas_print.o
+LIB_OBJS := libasm.o parse.o compile.o render.o render_elf.o render_sna.o instruction.o lexer.yy.o parser.tab.o disas_opcodes.o disas_print.o
 LIB_OBJS := $(addprefix $(OBJDIR)/, $(LIB_OBJS))
 LIB_DEPS := $(addprefix $(OBJDIR)/, $(LIB_OBJS:%.o=%.d))
 
 AS_OBJS := as.o
 AS_OBJS := $(addprefix $(OBJDIR)/, $(AS_OBJS))
-AS_DEPS := $(addprefix $(OBJDIR)/, $(AS_DEPS:%.o=%.d))
+AS_DEPS := $(addprefix $(OBJDIR)/, $(AS_OBJS:%.o=%.d))
 
 DISAS_OBJS := disas.o
 DISAS_OBJS := $(addprefix $(OBJDIR)/, $(DISAS_OBJS))
-DISAS_DEPS := $(addprefix $(OBJDIR)/, $(DISAS_DEPS:%.o=%.d))
+DISAS_DEPS := $(addprefix $(OBJDIR)/, $(DISAS_OBJS:%.o=%.d))
 
 -include $(LIB_DEPS) $(AS_DEPS) $(DISAS_DEPS)
 

@@ -19,3 +19,5 @@ extern void render_patch(compile_ctx_t *ctx, patch_t *patch, int value);
 
 extern void render_start(compile_ctx_t *ctx);
 extern uint32_t render_finish(compile_ctx_t *ctx, char **dest_buf);
+extern uint32_t render_sna(compile_ctx_t *ctx, char **dest_buf);
+extern uint32_t render_elf(compile_ctx_t *ctx, char **dest_buf);

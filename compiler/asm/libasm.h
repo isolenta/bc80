@@ -8,6 +8,7 @@ typedef struct hashmap hashmap;
 
 #define ASM_TARGET_RAW 0
 #define ASM_TARGET_ELF 1
+#define ASM_TARGET_SNA 2
 
 // user-defined callback for error processing:
 // message: short error message
@@ -26,7 +27,12 @@ struct libasm_as_desc_t {
   char *filename;                     // name of source file (for error reporing only)
   dynarray *includeopts;              // array of directories where it should search files for 'include' and 'incbin' directives
   hashmap *defineopts;                // map (key-value) of predefined constants. Used to prepopulate symtab (the same as EQU expressions)
-  int target;                         // output format, one of ASM_TARGET_RAW, ASM_TARGET_ELF
+  int target;                         // output format, one of ASM_TARGET_RAW, ASM_TARGET_ELF, ASM_TARGET_SNA
+
+  // options for ASM_TARGET_SNA
+  bool sna_generic;                   // use generic device (don't initialize RAM areas like UDG and SYSVARS)
+  int sna_pc_addr;                    // initial PC value for ASM_TARGET_SNA (-1 if argument omitted)
+  int sna_ramtop;                     // RAM top address (suitable for user programs)
 
   error_callback_type error_cb;       // user-defined callback for error processing (see above)
   warning_callback_type warning_cb;   // user-defined callback for warning processing (see above)

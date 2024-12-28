@@ -23,6 +23,9 @@ typedef struct {
   dynarray *sections;
   int curr_section_id;
   int target;
+  bool sna_generic;
+  int sna_pc_addr;
+  int sna_ramtop;
   char *curr_global_label;
   error_callback_type error_cb;
   warning_callback_type warning_cb;

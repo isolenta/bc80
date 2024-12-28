@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/errno.h>
+#include <getopt.h>
 
 #include "common.h"
 #include "dynarray.h"
@@ -16,6 +17,7 @@
 #include "parse.h"
 #include "compile.h"
 #include "filesystem.h"
+#include "snafmt.h"
 
 static void print_usage(char *cmd) {
   printf("Assembler for Z80 CPU target.\n\n"
@@ -25,24 +27,35 @@ static void print_usage(char *cmd) {
          "  -o filename     name of target file (will use input file name if omitted)\n"
          "  -Ipath          add directory to include path list (for preprocessor #include directive search)\n"
          "  -Dkey[=value]   define symbol for preprocessor\n"
-         "  -t <target>     set output file target type. Can be one of:\n"
+         "  -t target       set output file target type. Can be one of:\n"
          "     raw (default)       raw binary rendered from absolute offset specified by ORG directive.\n"
          "                         Source file can contain only single section.\n"
-         "     object              ELF object file. Source file can define multiple sections.\n",
+         "     object              ELF object file. Source file can define multiple sections.\n"
+         "     sna                 RAM snapshot file (SNA, 48k uncompressed)\n"
+         "\nFollowing options are valid only for sna target:\n"
+         "  --sna-generic      don't initialize RAM in the shapshot (default: initialize for ZX Spectrum device)\n"
+         "  --sna-pc value     initial value of PC (default: lowest section address)\n"
+         "  --sna-ramtop addr  address for RAM top (zxspectrum; default 5D5Bh) or initial stack (generic; default 4000h)\n",
          cmd
   );
 }
 
 static int error_cb(const char *message, const char *filename, int line) {
   fprintf(stderr, "\x1b[31m");
-  fprintf(stderr, "Error in %s:%d: ", filename, line);
+  if (line > 0)
+    fprintf(stderr, "Error in %s:%d: ", filename, line);
+  else
+    fprintf(stderr, "Error: ");
   fprintf(stderr, "%s\x1b[0m\n", message);
   return 1;
 }
 
 static void warning_cb(const char *message, const char *filename, int line) {
   fprintf(stderr, "\x1b[33m");
-  fprintf(stderr, "Warning in %s:%d: ", filename, line);
+  if (line > 0)
+    fprintf(stderr, "Warning in %s:%d: ", filename, line);
+  else
+    fprintf(stderr, "Warning: ");
   fprintf(stderr, "%s\x1b[0m\n", message);
 }
 
@@ -54,6 +67,9 @@ int main(int argc, char **argv) {
   char *infile = NULL;
   char *outfile = NULL;
   int target = ASM_TARGET_RAW;
+  int sna_generic = 0;
+  int sna_pc_addr = -1;
+  int sna_ramtop = -1;
   int ret;
   size_t filesize, sret;
   FILE *fin = NULL;
@@ -69,8 +85,37 @@ int main(int argc, char **argv) {
 
   opterr = 0;
 
-  while ((optflag = getopt(argc, argv, "vhD:I:o:t:")) != -1) {
+#define LONGOPT_SNA_GENERIC 1
+#define LONGOPT_SNA_PC 2
+#define LONGOPT_SNA_RAMTOP 3
+
+  const struct option long_options[] = {
+    {"sna-generic",  no_argument,       &sna_generic, LONGOPT_SNA_GENERIC},
+    {"sna-pc",       required_argument, 0,            LONGOPT_SNA_PC},
+    {"sna-ramtop",   required_argument, 0,            LONGOPT_SNA_RAMTOP},
+    {0, 0, 0, 0}
+  };
+
+  while ((optflag = getopt_long(argc, argv, "hD:I:o:t:", long_options, NULL)) != -1) {
     switch (optflag) {
+      case 0:
+        // no_argument option processed
+        break;
+
+      case LONGOPT_SNA_PC:
+        if (!parse_any_integer(optarg, &sna_pc_addr)) {
+          fprintf(stderr, "can't parse value for PC address: %s\n", optarg);
+          return 1;
+        }
+        break;
+
+      case LONGOPT_SNA_RAMTOP:
+        if (!parse_any_integer(optarg, &sna_ramtop)) {
+          fprintf(stderr, "can't parse value for ramtop address: %s\n", optarg);
+          return 1;
+        }
+        break;
+
       case 'D': {
         dynarray *kvparts = split_string_sep(optarg, '=', true);
         hashmap_search(defineopts, dinitial(kvparts), HASHMAP_INSERT,
@@ -91,13 +136,20 @@ int main(int argc, char **argv) {
           target = ASM_TARGET_RAW;
         else if (strcasecmp(optarg, "object") == 0)
           target = ASM_TARGET_ELF;
+        else if (strcasecmp(optarg, "sna") == 0)
+          target = ASM_TARGET_SNA;
         else {
-          fprintf(stderr, "target must be one of 'raw', 'object'\n");
+          fprintf(stderr, "target must be one of 'raw', 'object', 'sna'\n");
           return 1;
         }
         break;
 
+      case ':':
+        fprintf(stderr, "missing option argument\n");
+        break;
+
       case 'h':
+      case '?':
       default:
         print_usage(argv[0]);
         return 0;
@@ -116,7 +168,10 @@ int main(int argc, char **argv) {
 
   if (outfile == NULL) {
     // evaluate output filename from input one
-    outfile = fs_replace_suffix(infile, (target == ASM_TARGET_RAW) ? "bin" : "obj");
+    outfile = fs_replace_suffix(infile,
+      (target == ASM_TARGET_ELF) ? "obj" :
+      (target == ASM_TARGET_SNA) ? "sna" :
+      "bin");
   }
 
   // actual work below
@@ -142,12 +197,18 @@ int main(int argc, char **argv) {
 
   source[filesize] = '\0';
 
+  if (sna_ramtop == -1)
+    sna_ramtop = (sna_generic != 0) ? SNA_DEFAULT_RAMTOP : ZX_DEFAULT_RAMTOP;
+
   memset(&desc, 0, sizeof(desc));
   desc.source = source;
   desc.filename = infile;
   desc.includeopts = includeopts;
   desc.defineopts = defineopts;
   desc.target = target;
+  desc.sna_generic = (sna_generic != 0);
+  desc.sna_pc_addr = sna_pc_addr;
+  desc.sna_ramtop = sna_ramtop;
   desc.error_cb = error_cb;
   desc.warning_cb = warning_cb;
   desc.dest = &destination;

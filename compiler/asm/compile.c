@@ -262,6 +262,9 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_e
   compile_ctx.symtab = make_symtab(desc->defineopts);
   compile_ctx.verbose_error = true;
   compile_ctx.target = desc->target;
+  compile_ctx.sna_generic = desc->sna_generic;
+  compile_ctx.sna_pc_addr = desc->sna_pc_addr;
+  compile_ctx.sna_ramtop = desc->sna_ramtop;
   compile_ctx.error_cb = desc->error_cb;
   compile_ctx.warning_cb = desc->warning_cb;
   compile_ctx.error_jmp_env = error_jmp_env;
@@ -588,7 +591,7 @@ void report_error(compile_ctx_t *ctx, char *fmt, ...) {
     buffer_append_va(msgbuf, fmt, args);
     va_end(args);
 
-    int err_cb_ret = ctx->error_cb(msgbuf->data, ctx->node->fn, ctx->node->line);
+    int err_cb_ret = ctx->error_cb(msgbuf->data, ctx->node->fn, ctx->verbose_error ? ctx->node->line : 0);
     buffer_free(msgbuf);
 
     if (err_cb_ret != 0)
@@ -605,7 +608,7 @@ void report_warning(compile_ctx_t *ctx, char *fmt, ...) {
     buffer_append_va(msgbuf, fmt, args);
     va_end(args);
 
-    ctx->warning_cb(msgbuf->data, ctx->node->fn, ctx->node->line);
+    ctx->warning_cb(msgbuf->data, ctx->node->fn, ctx->verbose_error ? ctx->node->line : 0);
     buffer_free(msgbuf);
   }
 }
