@@ -19,6 +19,8 @@ typedef enum parse_type
   NODE_ID,
   NODE_LIST,
   NODE_SECTION,
+  NODE_REPT,
+  NODE_ENDR
 } parse_type;
 
 typedef struct {
@@ -130,6 +132,19 @@ typedef struct {
   ID *name;
   EXPR *value;
 } EQU;
+
+typedef struct {
+  parse_type type;
+  uint32_t line;
+  const char *fn;
+  LITERAL *count;
+} REPT;
+
+typedef struct {
+  parse_type type;
+  uint32_t line;
+  const char *fn;
+} ENDR;
 
 typedef struct {
   parse_type type;

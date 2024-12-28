@@ -42,6 +42,7 @@
 %token <ival> T_INT
 %token T_DOLLAR T_LPAR T_RPAR T_MINUS T_PLUS T_MUL T_DIV T_COMMA T_COLON T_ORG T_EQU T_END T_DB
 %token T_DM T_DW T_DS T_INCBIN T_INCLUDE T_NOT T_AND T_OR T_NL T_SECTION T_PERCENT T_SHL T_SHR
+%token T_REPT T_ENDR
 
 %type <node> id str integer dollar simple_expr unary_expr expr exprlist
 
@@ -234,6 +235,15 @@ stmt
       }
       | T_END {
         END *l = make_node(END, desc->filename, @1.first_line);
+        *statements = dynarray_append_ptr(*statements, l);
+      }
+      | T_REPT integer {
+        REPT *l = make_node(REPT, desc->filename, @1.first_line);
+        l->count = (LITERAL *)$2;
+        *statements = dynarray_append_ptr(*statements, l);
+      }
+      | T_ENDR {
+        ENDR *l = make_node(ENDR, desc->filename, @1.first_line);
         *statements = dynarray_append_ptr(*statements, l);
       }
       | id T_COLON T_EQU expr {

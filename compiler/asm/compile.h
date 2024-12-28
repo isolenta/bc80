@@ -16,6 +16,12 @@ typedef struct {
 } section_ctx_t;
 
 typedef struct {
+  int start_iter;
+  int count;
+  int counter;
+} rept_ctx_t;
+
+typedef struct {
   parse_node *node;
   dynarray *patches;
   hashmap *symtab;
@@ -30,6 +36,8 @@ typedef struct {
   error_callback_type error_cb;
   warning_callback_type warning_cb;
   jmp_buf *error_jmp_env;
+  rept_ctx_t *curr_rept;
+  int lookup_rept_iter_id;
 } compile_ctx_t;
 
 typedef struct {
@@ -39,6 +47,7 @@ typedef struct {
   bool relative;
   uint32_t instr_pc;
   int section_id;
+  int rept_iter_id;
 } patch_t;
 
 extern parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar);

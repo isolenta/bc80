@@ -46,6 +46,19 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
         ((LITERAL *)nval)->is_ref = id->is_ref;
       return expr_eval(ctx, nval, do_eval_dollar);
     } else {
+      // There is a chance that it's label name inside REPT block.
+      // Try to resolve it as suffixed label
+      if (ctx->lookup_rept_iter_id != -1) {
+        char *suffixed_name = bsprintf("%s#%d", id->name, ctx->lookup_rept_iter_id);
+        parse_node *nval2 = hashmap_search(ctx->symtab, suffixed_name, HASHMAP_FIND, NULL);
+        if (nval2) {
+          if (nval2->type == NODE_LITERAL)
+            ((LITERAL *)nval2)->is_ref = id->is_ref;
+          return expr_eval(ctx, nval2, do_eval_dollar);
+        } else {
+          return node;
+        }
+      }
       return node;
     }
   }
@@ -268,6 +281,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_e
   compile_ctx.error_cb = desc->error_cb;
   compile_ctx.warning_cb = desc->warning_cb;
   compile_ctx.error_jmp_env = error_jmp_env;
+  compile_ctx.lookup_rept_iter_id = -1;
 
   render_start(&compile_ctx);
 
@@ -514,7 +528,16 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_e
       cur_offset->kind = INT;
       cur_offset->ival = section->curr_pc;
 
-      hashmap_search(compile_ctx.symtab, label_name, HASHMAP_INSERT, cur_offset);
+      // if we're inside REPT block, localize label name by adding suffix
+      // 'labelname' => 'labelname#n' where n is iteration index.
+      // Note that symbol '#' is forbidden in identifiers so there is no way
+      // to get a name collision with user-defined labels.
+      char *localized_name = label_name;
+      if (compile_ctx.curr_rept != NULL) {
+        localized_name = bsprintf("%s#%d", label->name->name, compile_ctx.curr_rept->counter);
+      }
+
+      hashmap_search(compile_ctx.symtab, localized_name, HASHMAP_INSERT, cur_offset);
     }
 
     if (node->type == NODE_INSTR) {
@@ -541,18 +564,51 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_e
 
       compile_instruction(&compile_ctx, name, instr->args);
     }
+
+    if (node->type == NODE_REPT) {
+      REPT *rept = (REPT *)node;
+      LITERAL *count = rept->count;
+      if (count->kind != INT)
+        report_error(&compile_ctx, "REPT count must have integer type");
+
+      if (compile_ctx.curr_rept != NULL)
+        report_error(&compile_ctx, "nested REPT blocks are not allowed");
+
+      compile_ctx.curr_rept = (rept_ctx_t *)xmalloc(sizeof(rept_ctx_t));
+      compile_ctx.curr_rept->count = count->ival;
+      compile_ctx.curr_rept->counter = 0;
+      compile_ctx.curr_rept->start_iter = foreach_current_index(dc);
+    }
+
+    if (node->type == NODE_ENDR) {
+      if (compile_ctx.curr_rept == NULL)
+        report_error(&compile_ctx, "found ENDR directive outside of REPT block");
+
+      if (compile_ctx.curr_rept->counter < compile_ctx.curr_rept->count - 1) {
+        // rewind parse list foreach to first block statement
+        compile_ctx.curr_rept->counter++;
+        foreach_current_index(dc) = compile_ctx.curr_rept->start_iter;
+        continue;
+      } else {
+        // repitition finished, stop looping and destroy context
+        xfree(compile_ctx.curr_rept);
+        compile_ctx.curr_rept = NULL;
+      }
+    }
+
   }
 
   // ==================================================================================================
   // 2nd pass: patch code with unresolved constants values as soon as symtab is fully populated now
   // ==================================================================================================
 
-  compile_ctx.verbose_error = false;
-
   foreach(dc, compile_ctx.patches) {
     patch_t *patch = (patch_t *)dfirst(dc);
 
+    compile_ctx.lookup_rept_iter_id = patch->rept_iter_id;
     parse_node *resolved_node = expr_eval(&compile_ctx, patch->node, true);
+    compile_ctx.lookup_rept_iter_id = -1;
+
     if (resolved_node->type != NODE_LITERAL) {
       parse_node *saved_node = compile_ctx.node;
 
@@ -635,6 +691,7 @@ void register_fwd_lookup(compile_ctx_t *ctx,
   patch->relative = relative;
   patch->instr_pc = instr_pc;
   patch->section_id = ctx->curr_section_id;
+  patch->rept_iter_id = ctx->curr_rept ? ctx->curr_rept->counter : -1;
 
   ctx->patches = dynarray_append_ptr(ctx->patches, patch);
 }

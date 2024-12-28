@@ -48,6 +48,8 @@ intnum  ({decnum}|{hexnum}|{binnum})
 {newline}     { return T_NL; }
 
 (?i:org)      { return T_ORG; }
+(?i:rept)     { return T_REPT; }
+(?i:endr)     { return T_ENDR; }
 (?i:equ)      { return T_EQU; }
 (?i:end)      { return T_END; }
 (?i:db|defb)  { return T_DB; }

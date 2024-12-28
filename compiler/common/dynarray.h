@@ -67,6 +67,8 @@ typedef struct foreachstate
      (cell = NULL, false); \
      cell##__state.i++)
 
+#define foreach_current_index(cell)  (cell##__state.i)
+
 extern dynarray *dynarray_append_ptr(dynarray *darray, void *value);
 extern dynarray *dynarray_append_int(dynarray *darray, int value);
 extern void dynarray_free(dynarray *darray);
