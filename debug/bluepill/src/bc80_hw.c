@@ -57,9 +57,42 @@ static inline void cfg_bus_control_pins() {
   cfg_pin_as_output(BUS_IORQ);
   cfg_pin_as_output(BUS_WR);
   cfg_pin_as_output(BUS_RD);
+}
 
-  cfg_pin_as_output(BUS_RESET);
-  set_pin_high(BUS_RESET);
+static inline void cfg_release_bus() {
+  // don't drive CPU bus to prevent conflicts with Z80: set these pins to hi-z state
+  cfg_pin_as_input(BUS_A0);
+  cfg_pin_as_input(BUS_A1);
+  cfg_pin_as_input(BUS_A2);
+  cfg_pin_as_input(BUS_A3);
+  cfg_pin_as_input(BUS_A4);
+  cfg_pin_as_input(BUS_A5);
+  cfg_pin_as_input(BUS_A6);
+  cfg_pin_as_input(BUS_A7);
+  cfg_pin_as_input(BUS_A8);
+  cfg_pin_as_input(BUS_A9);
+  cfg_pin_as_input(BUS_A10);
+  cfg_pin_as_input(BUS_A11);
+  cfg_pin_as_input(BUS_A12);
+  cfg_pin_as_input(BUS_A13);
+  cfg_pin_as_input(BUS_A14);
+  cfg_pin_as_input(BUS_A15);
+
+  cfg_pin_as_input(BUS_D0);
+  cfg_pin_as_input(BUS_D1);
+  cfg_pin_as_input(BUS_D2);
+  cfg_pin_as_input(BUS_D3);
+  cfg_pin_as_input(BUS_D4);
+  cfg_pin_as_input(BUS_D5);
+  cfg_pin_as_input(BUS_D6);
+  cfg_pin_as_input(BUS_D7);
+
+  // don't drive bus control signals as well except RESET: we'll use it to lock/unlock CPU
+  cfg_pin_as_input(BUS_MREQ);
+  cfg_pin_as_input(BUS_IORQ);
+  cfg_pin_as_input(BUS_WR);
+  cfg_pin_as_input(BUS_RD);
+  cfg_pin_as_input(BUS_INT);
 }
 
 static inline uint8_t read_data() {
@@ -151,6 +184,8 @@ void bc80_write_mem(uint16_t addr, uint8_t byte) {
 
   set_pin_high(BUS_MREQ);
   set_pin_high(BUS_WR);
+
+  cfg_release_bus();
 }
 
 uint8_t bc80_read_mem(uint16_t addr) {
@@ -175,6 +210,8 @@ uint8_t bc80_read_mem(uint16_t addr) {
   set_pin_high(BUS_MREQ);
   set_pin_high(BUS_RD);
 
+  cfg_release_bus();
+
   return result;
 }
 
@@ -196,28 +233,9 @@ void bc80_write_io(uint16_t addr, uint8_t byte) {
 
   set_pin_high(BUS_WR);
   set_pin_high(BUS_IORQ);
+
+  cfg_release_bus();
 }
-
-// LCD only
-// void bc80_write_io(uint16_t addr, uint8_t byte) {
-//   cfg_address_pins();
-//   cfg_bus_control_pins();
-//   cfg_data_pins(true);
-
-//   set_address(addr);
-//   set_data(byte);
-
-//   set_pin_high(BUS_MREQ);
-//   set_pin_high(BUS_RD);
-
-//   set_pin_low(BUS_WR);
-//   set_pin_low(BUS_IORQ);
-
-//   delay_1us();
-
-//   set_pin_high(BUS_IORQ);
-//   set_pin_high(BUS_WR);
-// }
 
 uint8_t bc80_read_io(uint16_t addr) {
   uint8_t result;
@@ -240,6 +258,8 @@ uint8_t bc80_read_io(uint16_t addr) {
 
   set_pin_high(BUS_IORQ);
   set_pin_high(BUS_RD);
+
+  cfg_release_bus();
 
   return result;
 }

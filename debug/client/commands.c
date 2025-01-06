@@ -14,6 +14,7 @@
 
 static command_t *commands = NULL;
 static char *g_ttyfile = NULL;
+static int g_reset_state = 0;
 
 static void lcd_set_xy(uint8_t x, uint8_t y);
 static void lcd_clear();
@@ -153,6 +154,11 @@ static int cmd_wr(dynarray *args) {
   int fd = open(g_ttyfile, O_RDWR);
   if (fd < 0) {
     perror(g_ttyfile);
+    return 1;
+  }
+
+  if (g_reset_state != 0) {
+    printf("it's possible to operate with CPU bus only under RESET state (use lock/unlock commands)\n");
     return 0;
   }
 
@@ -237,6 +243,11 @@ static int cmd_rd(dynarray *args) {
   int fd = open(g_ttyfile, O_RDWR);
   if (fd < 0) {
     perror(g_ttyfile);
+    return 1;
+  }
+
+  if (g_reset_state != 0) {
+    printf("it's possible to operate with CPU bus only under RESET state (use lock/unlock commands)\n");
     return 0;
   }
 
@@ -312,6 +323,11 @@ static int cmd_out(dynarray *args) {
   int fd = open(g_ttyfile, O_RDWR);
   if (fd < 0) {
     perror(g_ttyfile);
+    return 1;
+  }
+
+  if (g_reset_state != 0) {
+    printf("it's possible to operate with CPU bus only under RESET state (use lock/unlock commands)\n");
     return 0;
   }
 
@@ -493,6 +509,11 @@ static int cmd_in(dynarray *args) {
   int fd = open(g_ttyfile, O_RDWR);
   if (fd < 0) {
     perror(g_ttyfile);
+    return 1;
+  }
+
+  if (g_reset_state != 0) {
+    printf("it's possible to operate with CPU bus only under RESET state (use lock/unlock commands)\n");
     return 0;
   }
 
@@ -542,7 +563,7 @@ static int cmd_pin(dynarray *args) {
   int fd = open(g_ttyfile, O_RDWR);
   if (fd < 0) {
     perror(g_ttyfile);
-    return 0;
+    return 1;
   }
 
   if (strcasecmp(cmd, "pa0") == 0)
@@ -636,6 +657,10 @@ static int cmd_pin(dynarray *args) {
   } else {
     // write pin state
     uint8_t resp, subcmd;
+    bool quiet = false;
+
+    if ((dynarray_length(args) == 3) && ((strcmp(dfirst(dynarray_nth_cell(args, 2)), "q") == 0)))
+      quiet = true;
 
     if (strcmp(dsecond(args), "1") == 0)
       subcmd = SUBCMD_SET_HI;
@@ -665,7 +690,12 @@ static int cmd_pin(dynarray *args) {
       goto cmd_pin_exit;
     }
 
-    printf("%s := %s\n", (char *)dinitial(args), (char *)dsecond(args));
+    if (pincode == PIN_PC14) {
+      g_reset_state = (subcmd == SUBCMD_SET_HI) ? 1 : 0;
+    }
+
+    if (!quiet)
+      printf("%s := %s\n", (char *)dinitial(args), (char *)dsecond(args));
   }
 
 cmd_pin_exit:
@@ -746,6 +776,30 @@ static uint8_t mem_read(int fd, uint16_t addr) {
   return resp[3];
 }
 
+static int cmd_lock(dynarray *args) {
+  dynarray *fake_args = NULL;
+
+  // just alias for 'pc14 0', pc14 is RESET pin
+  fake_args = dynarray_append_ptr(fake_args, strdup("pc14"));
+  fake_args = dynarray_append_ptr(fake_args, strdup("0"));
+  fake_args = dynarray_append_ptr(fake_args, strdup("q"));  // quiet mode: don't print current pin state
+  cmd_pin(fake_args);
+
+  return 0;
+}
+
+int cmd_unlock(dynarray *args) {
+  dynarray *fake_args = NULL;
+
+  // just alias for 'pc14 1', pc14 is RESET pin
+  fake_args = dynarray_append_ptr(fake_args, strdup("pc14"));
+  fake_args = dynarray_append_ptr(fake_args, strdup("1"));
+  fake_args = dynarray_append_ptr(fake_args, strdup("q"));  // quiet mode: don't print current pin state
+  cmd_pin(fake_args);
+
+  return 0;
+}
+
 static int cmd_memtest(dynarray *args) {
   uint16_t start_addr = 0, end_addr = 0xffff;
   int ival;
@@ -754,7 +808,7 @@ static int cmd_memtest(dynarray *args) {
   int fd = open(g_ttyfile, O_RDWR);
   if (fd < 0) {
     perror(g_ttyfile);
-    return 0;
+    return 1;
   }
 
   if (dynarray_length(args) > 1) {
@@ -781,6 +835,9 @@ static int cmd_memtest(dynarray *args) {
   uint32_t seed = 0;
   uint32_t a = 1664525;
   uint32_t c = 1013904223;
+
+  // we can acquire CPU bus only during CPU RESET state: set RESET to low (active) state
+  cmd_lock(NULL);
 
   // hide cursor
   printf("\e[?25l");
@@ -868,30 +925,11 @@ static int cmd_memtest(dynarray *args) {
 
   lcd_puts(tmp);
 
+  // deactivate CPU RESET
+  cmd_unlock(NULL);
+
 cmd_memtest_exit:
   close(fd);
-  return 0;
-}
-
-static int cmd_lock(dynarray *args) {
-  dynarray *fake_args = NULL;
-
-  // just alias for 'pc14 0', pc14 is RESET pin
-  fake_args = dynarray_append_ptr(fake_args, strdup("pc14"));
-  fake_args = dynarray_append_ptr(fake_args, strdup("0"));
-  cmd_pin(fake_args);
-
-  return 0;
-}
-
-static int cmd_unlock(dynarray *args) {
-  dynarray *fake_args = NULL;
-
-  // just alias for 'pc14 1', pc14 is RESET pin
-  fake_args = dynarray_append_ptr(fake_args, strdup("pc14"));
-  fake_args = dynarray_append_ptr(fake_args, strdup("1"));
-  cmd_pin(fake_args);
-
   return 0;
 }
 
@@ -1053,7 +1091,7 @@ static int cmd_load(dynarray *args) {
   int fd = open(g_ttyfile, O_RDWR);
   if (fd < 0) {
     perror(g_ttyfile);
-    return 0;
+    return 1;
   }
 
   if (dynarray_length(args) > 2) {
@@ -1066,6 +1104,9 @@ static int cmd_load(dynarray *args) {
     load_addr = (uint16_t)(ival & 0xffff);
   }
 
+  // we can acquire CPU bus only during CPU RESET state: set RESET to low (active) state
+  cmd_lock(NULL);
+
   char *pbuf = buf;
   while (size > 0) {
     mem_write(fd, load_addr, *pbuf);
@@ -1073,6 +1114,9 @@ static int cmd_load(dynarray *args) {
     pbuf++;
     load_addr++;
   }
+
+  // deactivate CPU RESET
+  cmd_unlock(NULL);
 
 cmd_load_exit:
   free(buf);

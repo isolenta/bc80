@@ -18,3 +18,5 @@ dynarray *get_tokens(char *str);
 command_t *get_command(int idx);
 bool check_board(char *ttyfile);
 char *get_ttyfile(int argc, char **argv);
+
+int cmd_unlock(dynarray *args);

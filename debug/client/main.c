@@ -88,6 +88,9 @@ int main(int argc, char **argv)
     exit(1);
   }
 
+  // deactivate RESET and initialize internal lock state
+  cmd_unlock(NULL);
+
   printf("successfully initialize device at %s\n", ttyfile);
 
   init_commands();

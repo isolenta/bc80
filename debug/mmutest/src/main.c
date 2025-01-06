@@ -7,64 +7,6 @@
 #define TRUTH_SIZE 256
 #define NUM_STABILITY_TESTS 1000
 
-// fill 256-byte buffer with values: 0..3: bit0: RAM_CS, bit1: ROM_CS
-// byte index is set of input signals bits
-void acquire_truth_table(uint8_t *buf) {
-  for (int i = 0; i < TRUTH_SIZE; i++) {
-    if (i & (1 << 0))
-      set_pin_high(PIN_PB0);
-    else
-      set_pin_low(PIN_PB0);
-
-    if (i & (1 << 1))
-      set_pin_high(PIN_PB1);
-    else
-      set_pin_low(PIN_PB1);
-
-    if (i & (1 << 2))
-      set_pin_high(PIN_PB3);
-    else
-      set_pin_low(PIN_PB3);
-
-    if (i & (1 << 3))
-      set_pin_high(PIN_PA7);
-    else
-      set_pin_low(PIN_PA7);
-
-    if (i & (1 << 4))
-      set_pin_high(PIN_PB5);
-    else
-      set_pin_low(PIN_PB5);
-
-    if (i & (1 << 5))
-      set_pin_high(PIN_PB6);
-    else
-      set_pin_low(PIN_PB6);
-
-    if (i & (1 << 6))
-      set_pin_high(PIN_PB7);
-    else
-      set_pin_low(PIN_PB7);
-
-    if (i & (1 << 7))
-      set_pin_high(PIN_PB8);
-    else
-      set_pin_low(PIN_PB8);
-
-    delay_us(10);
-
-    buf[i] = 0;
-
-    // RAM_CS
-    if (is_pin_high(PIN_PB9))
-      buf[i] |= 1;
-
-    // ROM_CS
-    if (is_pin_high(PIN_PB10))
-      buf[i] |= 2;
-  }
-}
-
 #define MASK_HIMEM_ON (1 << 0)
 #define MASK_A13 (1 << 1)
 #define MASK_A14 (1 << 2)
@@ -74,7 +16,66 @@ void acquire_truth_table(uint8_t *buf) {
 #define MASK_MREQ (1 << 6)
 #define MASK_ROM_EN (1 << 7)
 
-void show_truth_table(uint8_t *buf) {
+
+// fill 256-byte buffer with values: 0..3: bit0: RAM_CS, bit1: ROM_CS
+// byte index is set of input signals bits
+void acquire_truth_table(volatile uint8_t *buf) {
+  for (int i = 0; i < TRUTH_SIZE; i++) {
+    if (i & MASK_HIMEM_ON)
+      set_pin_high(PIN_PB0);
+    else
+      set_pin_low(PIN_PB0);
+
+    if (i & MASK_A13)
+      set_pin_high(PIN_PB1);
+    else
+      set_pin_low(PIN_PB1);
+
+    if (i & MASK_A14)
+      set_pin_high(PIN_PB3);
+    else
+      set_pin_low(PIN_PB3);
+
+    if (i & MASK_A15)
+      set_pin_high(PIN_PA7);
+    else
+      set_pin_low(PIN_PA7);
+
+    if (i & MASK_WR)
+      set_pin_high(PIN_PB5);
+    else
+      set_pin_low(PIN_PB5);
+
+    if (i & MASK_RD)
+      set_pin_high(PIN_PB6);
+    else
+      set_pin_low(PIN_PB6);
+
+    if (i & MASK_MREQ)
+      set_pin_high(PIN_PB7);
+    else
+      set_pin_low(PIN_PB7);
+
+    if (i & MASK_ROM_EN)
+      set_pin_high(PIN_PB8);
+    else
+      set_pin_low(PIN_PB8);
+
+    delay_us(10);
+
+    buf[i] = 0;
+
+    // RAM_CS
+    if (is_pin_high(PIN_PA6))
+      buf[i] |= 1;
+
+    // ROM_CS
+    // if (is_pin_high(PIN_PB10))
+      buf[i] |= 2;
+  }
+}
+
+void show_truth_table(volatile uint8_t *buf) {
   printf("N   | a15 | a14 | a13 | mreq | rd | wr | rom_en | himem_on  ||  rom_cs   || ram_cs\n\r");
 
   for (int i = 0; i < TRUTH_SIZE; i++) {
@@ -93,7 +94,7 @@ void show_truth_table(uint8_t *buf) {
   }
 }
 
-void synth_truth_table(uint8_t *buf) {
+void synth_truth_table(volatile uint8_t *buf) {
   for (int i = 0; i < TRUTH_SIZE; i++) {
     bool himem_on = i & MASK_HIMEM_ON;
     bool a15 = i & MASK_A15;
@@ -111,12 +112,12 @@ void synth_truth_table(uint8_t *buf) {
       buf[i] |= 1;
 
     // ROM_CS
-    if ((a15 || mreq || rd || rom_en) || (!wr))
+    // if ((a15 || mreq || rd || rom_en) || (!wr))
       buf[i] |= 2;
   }
 }
 
-int my_memcmp(uint8_t *b1, uint8_t *b2, int len) {
+int my_memcmp(volatile uint8_t *b1, volatile uint8_t *b2, int len) {
   int result = 0;
   for (int i = 0; i < len; i++) {
     if (b1[i] != b2[i])
@@ -134,7 +135,7 @@ void _putchar(char ch) {
 }
 
 int main() {
-  uint8_t truth[2 * TRUTH_SIZE];
+  volatile uint8_t truth[2 * TRUTH_SIZE];
   int errtestcnt = 0, errtotalcnt = 0;
 
   cfg_pin_as_output(PIN_PB0);   // HIMEM_ON
@@ -146,15 +147,18 @@ int main() {
   cfg_pin_as_output(PIN_PB7);   // MREQ
   cfg_pin_as_output(PIN_PB8);   // ROM_EN
 
-  cfg_pin_as_input(PIN_PB9);    // RAM_CS
+  cfg_pin_as_input(PIN_PA6);    // RAM_CS
   cfg_pin_as_input(PIN_PB10);    // ROM_CS
 
 
-  // set_pin_low(PIN_PA7); // A15
+  // set_pin_high(PIN_PA7); // A15
+  // set_pin_low(PIN_PB3); // A14
+  // set_pin_low(PIN_PB1); // A13
   // set_pin_low(PIN_PB7); // MREQ
   // set_pin_low(PIN_PB6); // RD
+  // set_pin_low(PIN_PB5);  // WR
   // set_pin_low(PIN_PB8); // ROMEN
-  // set_pin_high(PIN_PB5);  // WR
+  // set_pin_low(PIN_PB0); // HIMEM
 
   // while(1);
 
@@ -172,20 +176,20 @@ int main() {
   printf("====================\n\r"
          "Hello from MMU test!\n\r");
 
-  // while (1) {
-  //   set_pin_high(PIN_PA7); // A15
-  //   set_pin_low(PIN_PB3); // A14
-  //   set_pin_high(PIN_PB1); // A13
-  //   set_pin_low(PIN_PB7); // MREQ
-  //   set_pin_low(PIN_PB6); // RD
-  //   set_pin_high(PIN_PB5);  // WR
-  //   set_pin_low(PIN_PB8); // ROMEN
-  //   set_pin_low(PIN_PB0); // HIMEM
+  while (1) {
+    set_pin_high(PIN_PA7); // A15
+    set_pin_high(PIN_PB3); // A14
+    set_pin_high(PIN_PB1); // A13
+    set_pin_low(PIN_PB7); // MREQ
+    set_pin_high(PIN_PB6); // RD
+    set_pin_high(PIN_PB5);  // WR
+    set_pin_high(PIN_PB8); // ROMEN
+    set_pin_high(PIN_PB0); // HIMEM
+// must be 1, actually 0
+    delay_us(50);
 
-  //   delay_us(50);
-
-  //   printf("RAM_CS: %d\n\r", is_pin_high(PIN_PB9));
-  // }
+    printf("RAM_CS: %d\n\r", is_pin_high(PIN_PA6));
+  }
 
   // 1. acquire truth table and compare it with synthesized one
   synth_truth_table(truth);
