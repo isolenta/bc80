@@ -1,6 +1,7 @@
 .obj/**
 *.obj
 *.o
+*.a
 *.d
 *.yy.c
 *.yy.h
@@ -9,3 +10,15 @@
 bc80/**/*backups/*.zip
 stuff
 debug/tools
+as_tests
+bc80
+kicad_libraries
+bc80-2
+
+history.md
+system.md
+video.md
+
+fuse
+interface_board
+schematics

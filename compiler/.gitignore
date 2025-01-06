@@ -1,0 +1,9 @@
+asm/as
+asm/disas
+as
+disas
+preproc/cpp
+cpp
+asm/test.log
+*.asm
+README.md
