@@ -50,14 +50,11 @@ int main(int argc, char **argv) {
 
   mmgr_init();
 
-  context.unique_counter = 0;
   context.error_cb = error_cb;
   context.warning_cb = warning_cb;
   context.error_jmp_env = &preproc_env;
   context.includeopts = NULL;
-  context.processed_files = hashmap_create(128, "processed_files");;
   context.constants = hashmap_create(128, "constants");
-  context.macroses = hashmap_create(128, "macroses");
 
   opterr = 0;
 
@@ -96,7 +93,7 @@ int main(int argc, char **argv) {
     goto out;
 
   source = read_file_content(&context, infile);
-  char *result = scan(&context, source, fs_abs_path(infile, NULL));
+  char *result = do_preproc(&context, source, fs_abs_path(infile, NULL));
   if (result && *result)
     puts(result);
   xfree(result);
@@ -107,7 +104,15 @@ out:
 
   xfree(infile);
 
-  hashmap_free(context.macroses);
+  hashmap_entry *entry = NULL;
+  hashmap_scan *scan;
+
+  scan = hashmap_scan_init(context.constants);
+  while ((entry = hashmap_scan_next(scan)) != NULL) {
+    char *parg = (char *)entry->value;
+    xfree(parg);
+  }
+
   hashmap_free(context.constants);
   dynarray_free_deep(context.includeopts);
 

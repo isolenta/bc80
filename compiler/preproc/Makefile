@@ -2,7 +2,7 @@ include ../make.def
 
 all: cpp
 
-CPP_OBJS := cpp.o scan.o error.o
+CPP_OBJS := cpp.o preproc.o error.o
 CPP_OBJS := $(addprefix $(OBJDIR)/, $(CPP_OBJS))
 CPP_DEPS := $(CPP_OBJS:%.o=%.d)
 
