@@ -1,13 +1,11 @@
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <stdarg.h>
 #include <string.h>
 
-#include "dynarray.h"
-#include "hashmap.h"
-#include "parse.h"
-#include "common.h"
-#include "compile.h"
-#include "render.h"
+#include "asm/parse.h"
+#include "asm/render.h"
+#include "common/dynarray.h"
 
 #include "instr.inc.c"
 

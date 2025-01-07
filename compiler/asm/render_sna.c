@@ -1,12 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "common.h"
-#include "buffer.h"
-#include "dynarray.h"
-#include "compile.h"
-#include "render.h"
-#include "snafmt.h"
+#include "asm/render.h"
+#include "asm/snafmt.h"
+#include "common/buffer.h"
 
 const uint8_t zx_udg_data[] = {
   0x00, 0x3c, 0x42, 0x42, 0x7e, 0x42, 0x42, 0x00, 0x00, 0x7c, 0x42, 0x7c, 0x42, 0x42, 0x7c, 0x00,

@@ -1,12 +1,10 @@
 #include <assert.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdint.h>
-#include <stddef.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "hashmap.h"
+#include "common/hashmap.h"
 
 static hashmap *allocations = NULL;
 static size_t stat_alloc_bytes = 0;

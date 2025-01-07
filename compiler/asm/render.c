@@ -1,10 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "filesystem.h"
-#include "common.h"
-#include "compile.h"
-#include "render.h"
+#include "asm/render.h"
+#include "common/buffer.h"
+#include "common/filesystem.h"
 
 #define DEFAULT_SECTION_NAME ".text"
 

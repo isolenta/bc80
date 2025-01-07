@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 
 extern void mmgr_init();
 extern void mmgr_finish(bool dump_stats);

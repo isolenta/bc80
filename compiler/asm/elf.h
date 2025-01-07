@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #define EI_NIDENT 16
 
 typedef struct {

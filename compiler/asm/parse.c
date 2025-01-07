@@ -1,15 +1,13 @@
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
 #include <ctype.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <stdio.h>
 
-#include "libasm.h"
-#include "buffer.h"
-#include "parse.h"
-#include "filesystem.h"
-#include "dynarray.h"
+#include "asm/libasm.h"
+#include "asm/parse.h"
+#include "common/buffer.h"
+#include "common/dynarray.h"
+#include "common/filesystem.h"
+#include "common/mmgr.h"
+
 #include "parser.tab.h"
 #include "lexer.yy.h"
 
@@ -428,7 +426,7 @@ char *node_to_string(parse_node *node) {
   return buf->data;
 }
 
-int parse_string(struct libasm_as_desc_t *desc, dynarray **statements, jmp_buf *parse_env) {
+int parse_string(struct libasm_as_desc_t *desc, dynarray **statements) {
   struct yy_buffer_state *buffer;
   yyscan_t scanner;
   int result;
@@ -446,7 +444,7 @@ int parse_string(struct libasm_as_desc_t *desc, dynarray **statements, jmp_buf *
 
   yylex_init(&scanner);
   buffer = yy_scan_string(data, scanner);
-  result = yyparse(scanner, statements, desc, parse_env);
+  result = yyparse(scanner, statements, desc);
   yy_delete_buffer(buffer, scanner);
   yylex_destroy(scanner);
 
@@ -455,7 +453,7 @@ int parse_string(struct libasm_as_desc_t *desc, dynarray **statements, jmp_buf *
   return result;
 }
 
-int parse_integer(struct libasm_as_desc_t *desc, char *text, int len, int base, char suffix, jmp_buf *parse_env) {
+int parse_integer(struct libasm_as_desc_t *desc, char *text, int len, int base, char suffix) {
   int result;
   char *tmp, *endptr;
 
@@ -472,21 +470,13 @@ int parse_integer(struct libasm_as_desc_t *desc, char *text, int len, int base, 
 
   result = strtol(tmp, &endptr, base);
   if (endptr == tmp) {
-    if (desc->error_cb) {
-      char *msg = bsprintf("error parse decimal integer: %s", text);
-      int err_cb_ret = desc->error_cb(msg, NULL, 0);
-      xfree(msg);
-      if (err_cb_ret != 0)
-        longjmp(*parse_env, 1);
-    } else {
-      result = 0;
-    }
+    generic_report_error(NULL, 0, "error parse decimal integer: %s", text);
   }
 
   return result;
 }
 
-int parse_binary(struct libasm_as_desc_t *desc, char *text, int len, jmp_buf *parse_env) {
+int parse_binary(struct libasm_as_desc_t *desc, char *text, int len) {
   char *tmp;
 
   if (text[0] == '%') {
@@ -503,15 +493,7 @@ int parse_binary(struct libasm_as_desc_t *desc, char *text, int len, jmp_buf *pa
 
   result = strtol(tmp, &endptr, 2);
   if (endptr == tmp) {
-    if (desc->error_cb) {
-      char *msg = bsprintf("error parse binary integer: %s", text);
-      int err_cb_ret = desc->error_cb(msg, NULL, 0);
-      xfree(msg);
-      if (err_cb_ret != 0)
-        longjmp(*parse_env, 1);
-    } else {
-      result = 0;
-    }
+    generic_report_error(NULL, 0, "error parse binary integer: %s", text);
   }
 
   return result;
@@ -528,7 +510,7 @@ void parse_print(dynarray *statements) {
   }
 }
 
-int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *filename, int line, jmp_buf *parse_env) {
+int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *filename, int line) {
   int ret = 0;
   size_t sz;
   FILE *fp = NULL;
@@ -538,23 +520,14 @@ int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *fi
 
   path = fs_abs_path(filename, g_includeopts);
   if (path == NULL) {
-    if (desc->error_cb) {
-      char *msg = bsprintf("file not found: %s", filename);
-      ret = desc->error_cb(msg, NULL, line);
-      xfree(msg);
-    }
-
+    generic_report_error(NULL, line, "file not found: %s", filename);
     goto out;
   }
 
   sz = fs_file_size(path);
   fp = fopen(path, "r");
   if (!fp) {
-    if (desc->error_cb) {
-      char *msg = bsprintf("%s: %s", path, strerror(errno));
-      ret = desc->error_cb(msg, NULL, line);
-      xfree(msg);
-    }
+    generic_report_error(NULL, line, "%s: %s", path, strerror(errno));
     goto out;
   }
 
@@ -562,11 +535,7 @@ int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *fi
 
   sz = fread(source, sz, 1, fp);
   if (sz != 1) {
-    if (desc->error_cb) {
-      char *msg = bsprintf("%s: %s", path, strerror(errno));
-      ret = desc->error_cb(msg, NULL, line);
-      xfree(msg);
-    }
+    generic_report_error(NULL, line, "%s: %s", path, strerror(errno));
     goto out;
   }
 
@@ -574,7 +543,7 @@ int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *fi
     memcpy(&desc_subtree, desc, sizeof(struct libasm_as_desc_t));
     desc_subtree.source = source;
     desc_subtree.filename = filename;
-    ret = parse_string(&desc_subtree, statements, parse_env);
+    ret = parse_string(&desc_subtree, statements);
   }
 
 out:

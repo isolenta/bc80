@@ -1,6 +1,7 @@
 #pragma once
 
-#include "compile.h"
+#include "asm/compile.h"
+#include "common/dynarray.h"
 
 static inline section_ctx_t *get_current_section(compile_ctx_t *ctx) {
   return (section_ctx_t *)dfirst(dynarray_nth_cell(ctx->sections, ctx->curr_section_id));

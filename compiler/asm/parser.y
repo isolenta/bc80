@@ -1,33 +1,25 @@
 %{
-    #include <stdio.h>
-    #include <stdio.h>
-    #include <setjmp.h>
+    #include "asm/libasm.h"
+    #include "asm/parse.h"
+    #include "common/dynarray.h"
+    #include "common/error.h"
+    #include "common/mmgr.h"
 
-    #include "mmgr.h"
-    #include "dynarray.h"
-    #include "parse.h"
-    #include "libasm.h"
-
-    #define YY_DECL int yylex (yyscan_t yyscanner, struct libasm_as_desc_t *desc, jmp_buf *parse_env)
+    #define YY_DECL int yylex (yyscan_t yyscanner, struct libasm_as_desc_t *desc)
     #include "parser.tab.h"
     #include "lexer.yy.h"
 
-    extern int yylex (yyscan_t yyscanner, struct libasm_as_desc_t *desc, jmp_buf *parse_env);
+    extern int yylex (yyscan_t yyscanner, struct libasm_as_desc_t *desc);
 
-    void yyerror(yyscan_t scanner, dynarray **statements, struct libasm_as_desc_t *desc, jmp_buf *parse_env, const char *msg) {
+    void yyerror(yyscan_t scanner, dynarray **statements, struct libasm_as_desc_t *desc, const char *msg) {
       (void)scanner;
       (void)statements;
-
-      if (desc->error_cb) {
-        int err_cb_ret = desc->error_cb(msg, desc->filename, yylloc.first_line + 1);
-        if (err_cb_ret != 0)
-          longjmp(*parse_env, 1);
-      }
+      generic_report_error(desc->filename, yylloc.first_line + 1, (char *) msg);
     }
 %}
 
-%lex-param {void* scanner}{struct libasm_as_desc_t *desc}{jmp_buf *parse_env}
-%parse-param {void* scanner}{dynarray **statements}{struct libasm_as_desc_t *desc}{jmp_buf *parse_env}
+%lex-param {void* scanner}{struct libasm_as_desc_t *desc}
+%parse-param {void* scanner}{dynarray **statements}{struct libasm_as_desc_t *desc}
 
 %union {
   char *str;
@@ -265,8 +257,7 @@ stmt
       }
       | T_INCLUDE str {
         LITERAL *filename = (LITERAL *)$2;
-        if (parse_include(desc, statements, filename->strval, @1.first_line, parse_env) != 0)
-          longjmp(*parse_env, 1);
+        parse_include(desc, statements, filename->strval, @1.first_line);
       }
       | T_DB exprlist {
         DEF *l = make_node(DEF, desc->filename, @1.first_line);

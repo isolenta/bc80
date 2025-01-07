@@ -1,9 +1,8 @@
-#include <stdio.h>
+#include <assert.h>
 #include <string.h>
-#include <unistd.h>
 
-#include "filesystem.h"
-#include "disas.h"
+#include "asm/disas.h"
+#include "common/mmgr.h"
 
 char *MnemonicStrings[] = {
   GEN_INSTR_LIST(FN_STRING)

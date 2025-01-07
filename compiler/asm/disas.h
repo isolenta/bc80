@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #define GEN_INSTR_LIST(FN) \
 FN(ADC) \
 FN(ADD) \

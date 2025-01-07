@@ -1,13 +1,11 @@
 %{
-  #include <ctype.h>
-  #include <stdio.h>
+  #include "asm/parse.h"
+  #include "common/mmgr.h"
 
-  #include "mmgr.h"
-  #include "parse.h"
   #include "parser.tab.h"
 
   #define YY_USER_ACTION yylloc.first_line = yylloc.last_line = yylineno;
-  #define YY_DECL int yylex (yyscan_t yyscanner, struct libasm_as_desc_t *desc, jmp_buf *parse_env)
+  #define YY_DECL int yylex (yyscan_t yyscanner, struct libasm_as_desc_t *desc)
 %}
 
 %option noyywrap
@@ -82,17 +80,17 @@ intnum  ({decnum}|{hexnum}|{binnum})
 }
 
 {decnum}  {
-  yylval.ival = parse_integer(desc, yytext, yyleng, 10, 'd', parse_env);
+  yylval.ival = parse_integer(desc, yytext, yyleng, 10, 'd');
   return T_INT;
 }
 
 {hexnum}  {
-  yylval.ival = parse_integer(desc, yytext, yyleng, 16, 'h', parse_env);
+  yylval.ival = parse_integer(desc, yytext, yyleng, 16, 'h');
   return T_INT;
 }
 
 {binnum}  {
-  yylval.ival = parse_binary(desc, yytext, yyleng, parse_env);
+  yylval.ival = parse_binary(desc, yytext, yyleng);
   return T_INT;
 }
 

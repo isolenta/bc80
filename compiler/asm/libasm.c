@@ -1,22 +1,10 @@
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/errno.h>
+#include <assert.h>
 #include <setjmp.h>
+#include <stdio.h>
 
-#include "common.h"
-#include "dynarray.h"
-#include "hashmap.h"
-#include "parse.h"
-#include "compile.h"
-#include "filesystem.h"
-#include "disas.h"
-
-#include "libasm.h"
-
-static jmp_buf parse_env;
-static jmp_buf compile_env;
+#include "asm/compile.h"
+#include "asm/disas.h"
+#include "asm/parse.h"
 
 int libasm_as(struct libasm_as_desc_t *desc) {
   dynarray *parse = NULL;
@@ -24,21 +12,11 @@ int libasm_as(struct libasm_as_desc_t *desc) {
 
   assert(desc);
 
-  result = setjmp(parse_env);
-  if (result != 0)
-    // returning from longjmp (error handler in parser)
-    return result;
-
-  result = parse_string(desc, &parse, &parse_env);
+  result = parse_string(desc, &parse);
   if (result != 0)
     return result;
 
-  result = setjmp(compile_env);
-  if (result != 0)
-    // returning from longjmp (error handler in compiler)
-    return result;
-
-  result = compile(desc, parse, &compile_env);
+  result = compile(desc, parse);
   return result;
 }
 

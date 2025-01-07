@@ -1,7 +1,7 @@
 #include <string.h>
 
-#include "dynarray.h"
-#include "mmgr.h"
+#include "common/dynarray.h"
+#include "common/mmgr.h"
 
 // Overhead for the fixed part of a dynarray header, measured in dynarray_cells
 #define DYNARRAY_HEADER_OVERHEAD  \

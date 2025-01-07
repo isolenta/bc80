@@ -1,12 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "common.h"
-#include "buffer.h"
-#include "dynarray.h"
-#include "compile.h"
-#include "render.h"
-#include "elf.h"
+#include "asm/elf.h"
+#include "asm/render.h"
+#include "common/buffer.h"
 
 #define SHSTRTAB_NAME ".shstrtab"
 

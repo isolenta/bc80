@@ -2,22 +2,16 @@
   Assembler for Z80 CPU target
 */
 
+#include <getopt.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/errno.h>
-#include <getopt.h>
 
-#include "common.h"
-#include "dynarray.h"
-#include "hashmap.h"
-#include "libasm.h"
-
-#include "parse.h"
-#include "compile.h"
-#include "filesystem.h"
-#include "snafmt.h"
+#include "asm/libasm.h"
+#include "asm/snafmt.h"
+#include "common/dynarray.h"
+#include "common/filesystem.h"
+#include "common/hashmap.h"
+#include "common/mmgr.h"
 
 static void print_usage(char *cmd) {
   printf("Assembler for Z80 CPU target.\n\n"
@@ -58,6 +52,8 @@ static void warning_cb(const char *message, const char *filename, int line) {
     fprintf(stderr, "Warning: ");
   fprintf(stderr, "%s\x1b[0m\n", message);
 }
+
+static jmp_buf error_env;
 
 int main(int argc, char **argv) {
   int optflag;
@@ -209,10 +205,15 @@ int main(int argc, char **argv) {
   desc.sna_generic = (sna_generic != 0);
   desc.sna_pc_addr = sna_pc_addr;
   desc.sna_ramtop = sna_ramtop;
-  desc.error_cb = error_cb;
-  desc.warning_cb = warning_cb;
   desc.dest = &destination;
   desc.dest_size = &dest_size;
+
+  ret = setjmp(error_env);
+  if (ret != 0)
+    // returning from longjmp (error handler)
+    goto out;
+
+  set_error_context(error_cb, warning_cb, &error_env);
 
   ret = libasm_as(&desc);
 

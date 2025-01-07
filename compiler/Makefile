@@ -1,21 +1,27 @@
 include make.def
 
-all: $(TOPDIR)/as $(TOPDIR)/disas $(TOPDIR)/cpp
+all: bindir asm rcc
 
-$(TOPDIR)/as $(TOPDIR)/disas:
+bindir:
+	mkdir -p $(TOPDIR)/bin
+
+.PHONY: asm
+asm: bindir
 	make -C $(TOPDIR)/asm all
-	cp $(TOPDIR)/asm/as $(TOPDIR)/as
-	cp $(TOPDIR)/asm/disas $(TOPDIR)/disas
+	cp $(TOPDIR)/asm/as $(TOPDIR)/bin/as
+	cp $(TOPDIR)/asm/disas $(TOPDIR)/bin/disas
 
-$(TOPDIR)/cpp:
-	make -C $(TOPDIR)/preproc all
-	cp $(TOPDIR)/preproc/cpp $(TOPDIR)/cpp
+.PHONY: rcc
+rcc: bindir
+	make -C $(TOPDIR)/rcc all
+	cp $(TOPDIR)/rcc/rcc $(TOPDIR)/bin/rcc
 
 test:
 	make -C $(TOPDIR)/asm test
 
+.PHONY: clean
 clean:
 	make -C $(TOPDIR)/common clean
 	make -C $(TOPDIR)/asm clean
-	make -C $(TOPDIR)/preproc clean
-	rm -f $(TOPDIR)/as $(TOPDIR)/disas $(TOPDIR)/cpp
+	make -C $(TOPDIR)/rcc clean
+	rm -f $(TOPDIR)/bin/as $(TOPDIR)/bin/disas $(TOPDIR)/bin/rcc

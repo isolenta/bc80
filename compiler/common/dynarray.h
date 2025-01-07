@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.h"
+#include "common/common.h"
 
 #define DYNARRAY_TYPE_PTR 1
 #define DYNARRAY_TYPE_INT 2

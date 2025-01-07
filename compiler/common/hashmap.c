@@ -1,8 +1,8 @@
-#include <stdio.h>
+#include <assert.h>
 #include <string.h>
 
-#include "common.h"
-#include "hashmap.h"
+#include "common/hashmap.h"
+#include "common/mmgr.h"
 
 // User is responsible to allocate and free memory occupied by values.
 // Hashmap only stores raw pointers and doesn't manage this memory.

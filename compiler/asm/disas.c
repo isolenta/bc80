@@ -1,14 +1,13 @@
-#include <stdio.h>
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
-#include <ctype.h>
 
-#include "libasm.h"
-#include "mmgr.h"
-#include "disas.h"
+#include "asm/libasm.h"
+#include "common/mmgr.h"
 
 static void print_usage(char *cmd) {
   printf("Z80 disssembler\n"

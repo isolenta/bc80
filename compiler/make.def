@@ -8,5 +8,5 @@ CC := gcc
 OBJDIR := .obj
 
 CFLAGS := -g -ggdb -O0 -fno-omit-frame-pointer -std=c11 \
-					-I$(TOPDIR) -I$(TOPDIR)/common
+					-I$(TOPDIR)
 LDFLAGS :=

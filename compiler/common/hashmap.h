@@ -1,6 +1,7 @@
 #pragma once
 
-#include "common.h"
+#include <stdint.h>
+#include <stddef.h>
 
 #define HASHMAP_FIND 0
 #define HASHMAP_INSERT 1

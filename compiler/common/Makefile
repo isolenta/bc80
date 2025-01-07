@@ -2,24 +2,21 @@ include ../make.def
 
 all: libcommon.a
 
-OBJS := common.o dynarray.o hashmap.o buffer.o filesystem.o mmgr.o
+OBJS := common.o dynarray.o hashmap.o buffer.o filesystem.o mmgr.o error.o
 OBJS := $(addprefix $(OBJDIR)/, $(OBJS))
 DEPS := $(OBJS:%.o=%.d)
 
 -include $(DEPS)
 
+CFLAGS += -MMD
+
 libcommon.a: $(OBJS)
 	ar -rc $@ $^
 
-$(OBJDIR)/%.o: %.c $(OBJDIR)/%.d
+$(OBJDIR)/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -MMD -c $< -o $@
 
-$(OBJDIR)/%.d: %.c
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -MM $^ -MF $@
-
-.PRECIOUS: $(OBJDIR)/%.d
-
+.PHONY: clean
 clean:
 	rm -f libcommon.a $(OBJS) $(DEPS)

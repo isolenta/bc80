@@ -1,14 +1,11 @@
+#include <stdint.h>
 #include <stdio.h>
-#include <stdarg.h>
 #include <string.h>
-#include <ctype.h>
 
-#include "dynarray.h"
-#include "hashmap.h"
-#include "parse.h"
-#include "common.h"
-#include "render.h"
-#include "compile.h"
+#include "asm/compile.h"
+#include "asm/render.h"
+#include "common/buffer.h"
+#include "common/hashmap.h"
 
 static parse_node *eval_literal(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar) {
   assert(node->type == NODE_LITERAL);
@@ -248,6 +245,9 @@ static hashmap *make_symtab(hashmap *defineopts) {
   hashmap_entry *entry = NULL;
   hashmap *symtab = hashmap_create(1024, "symtab");
 
+  if (!defineopts)
+    return symtab;
+
   scan = hashmap_scan_init(defineopts);
   while ((entry = hashmap_scan_next(scan)) != NULL) {
     LITERAL *l = (LITERAL *)make_node(LITERAL, NULL, 0);
@@ -265,7 +265,7 @@ static hashmap *make_symtab(hashmap *defineopts) {
   return symtab;
 }
 
-int compile(struct libasm_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_env) {
+int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
   dynarray_cell *dc = NULL;
 
   compile_ctx_t compile_ctx;
@@ -278,9 +278,6 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_e
   compile_ctx.sna_generic = desc->sna_generic;
   compile_ctx.sna_pc_addr = desc->sna_pc_addr;
   compile_ctx.sna_ramtop = desc->sna_ramtop;
-  compile_ctx.error_cb = desc->error_cb;
-  compile_ctx.warning_cb = desc->warning_cb;
-  compile_ctx.error_jmp_env = error_jmp_env;
   compile_ctx.lookup_rept_iter_id = -1;
 
   render_start(&compile_ctx);
@@ -636,37 +633,6 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_e
 
   // we are here, so there weren't errors during compilation
   return 0;
-}
-
-void report_error(compile_ctx_t *ctx, char *fmt, ...) {
-  if (ctx->error_cb) {
-    va_list args;
-    buffer *msgbuf = buffer_init();
-
-    va_start(args, fmt);
-    buffer_append_va(msgbuf, fmt, args);
-    va_end(args);
-
-    int err_cb_ret = ctx->error_cb(msgbuf->data, ctx->node->fn, ctx->verbose_error ? ctx->node->line : 0);
-    buffer_free(msgbuf);
-
-    if (err_cb_ret != 0)
-      longjmp(*ctx->error_jmp_env, 1);
-  }
-}
-
-void report_warning(compile_ctx_t *ctx, char *fmt, ...) {
-  if (ctx->warning_cb) {
-    va_list args;
-    buffer *msgbuf = buffer_init();
-
-    va_start(args, fmt);
-    buffer_append_va(msgbuf, fmt, args);
-    va_end(args);
-
-    ctx->warning_cb(msgbuf->data, ctx->node->fn, ctx->verbose_error ? ctx->node->line : 0);
-    buffer_free(msgbuf);
-  }
 }
 
 void register_fwd_lookup(compile_ctx_t *ctx,

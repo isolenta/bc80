@@ -1,10 +1,10 @@
-#include <stdlib.h>
 #include <stdio.h>
-#include <stdbool.h>
 #include <string.h>
 #include <sys/stat.h>
 
-#include "dynarray.h"
+#include "common/dynarray.h"
+#include "common/error.h"
+#include "common/mmgr.h"
 
 // if filename has any suffix (something after dot symbol until end of string) replace it to new_sfx
 // otherwise just add new_sfx at the end (with dot symbol)
@@ -73,4 +73,56 @@ char *fs_abs_path(char *filename, dynarray *searchlist) {
   }
 
   return NULL;
+}
+
+// read text file into memory buffer and return pointer to it.
+char *read_file(char *filename) {
+  char *source = NULL;
+  size_t filesize, sret;
+  FILE *fin = NULL;
+
+  if (!fs_file_exists(filename)) {
+    generic_report_error(NULL, 0, "file is not exist: %s", filename);
+  }
+
+  filesize = fs_file_size(filename);
+  fin = fopen(filename, "r");
+  if (!fin)
+    generic_report_error(NULL, 0, "unable to open file %s", filename);
+
+  source = (char *)xmalloc(filesize + 2);
+
+  sret = fread(source, filesize, 1, fin);
+  if (sret != 1) {
+    fclose(fin);
+    generic_report_error(NULL, 0, "file reading error %s", filename);
+  }
+
+  source[filesize] = '\0';
+  source[filesize + 1] = '\0';
+
+  fclose(fin);
+
+  return source;
+}
+
+size_t write_file(char *data, uint32_t data_size, char *filename) {
+  FILE *f = fopen(filename, "wb");
+  if (!f) {
+    generic_report_error(NULL, 0, "unable to open file %s", filename);
+    goto out;
+  }
+
+  if (data_size > 0) {
+    ssize_t sret = fwrite(data, data_size, 1, f);
+    if (sret != 1) {
+      generic_report_error(NULL, 0, "file writing error %s", filename);
+    }
+  }
+
+out:
+  if (f)
+    fclose(f);
+
+  return data_size;
 }

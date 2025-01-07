@@ -1,11 +1,15 @@
 #pragma once
 
 #include <setjmp.h>
+#include <stdint.h>
 
-#include "common.h"
-#include "parse.h"
-#include "buffer.h"
-#include "libasm.h"
+#include "common/error.h"
+#include "asm/parse.h"
+#include "asm/libasm.h"
+
+typedef struct buffer buffer;
+typedef struct dynarray dynarray;
+typedef struct hashmap hashmap;
 
 typedef struct {
   uint32_t start;
@@ -50,11 +54,20 @@ typedef struct {
   int rept_iter_id;
 } patch_t;
 
+#define report_error(ctx, fmt, ...) \
+  do { \
+    generic_report_error((ctx)->node->fn, (ctx)->verbose_error ? (ctx)->node->line : 0, fmt, ## __VA_ARGS__); \
+  } while (0)
+
+
+#define report_warning(ctx, fmt, ...) \
+  do { \
+    generic_report_warning((ctx)->node->fn, (ctx)->verbose_error ? (ctx)->node->line : 0, fmt, ## __VA_ARGS__); \
+  } while (0)
+
 extern parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar);
-extern int compile(struct libasm_as_desc_t *desc, dynarray *parse, jmp_buf *error_jmp_env);
+extern int compile(struct libasm_as_desc_t *desc, dynarray *parse);
 extern void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args);
-extern void report_error(compile_ctx_t *ctx, char *fmt, ...);
-extern void report_warning(compile_ctx_t *ctx, char *fmt, ...);
 extern void register_fwd_lookup(compile_ctx_t *ctx,
                           parse_node *unresolved_node,
                           uint32_t pos,

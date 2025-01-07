@@ -1,11 +1,8 @@
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
 #include <ctype.h>
+#include <string.h>
 
-#include "common.h"
-#include "dynarray.h"
+#include "common/dynarray.h"
+#include "common/mmgr.h"
 
 dynarray *split_string_sep(char *str, char sep, bool first) {
   dynarray *darray = NULL;
