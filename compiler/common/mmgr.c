@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "common/hashmap.h"
+#include "common/mmgr.h"
 
 static hashmap *allocations = NULL;
 static size_t stat_alloc_bytes = 0;
@@ -110,10 +111,12 @@ void xfree_(void *ptr, const char *file, int line) {
   (void)file;
   (void)line;
 
-  if (ptr == NULL)
+  if (ptr == NULL || ptr == XMMGR_DUMMY_PTR)
     return;
 
   struct alloc_entry *entry = (struct alloc_entry *)hashmap_search(allocations, &ptr, HASHMAP_REMOVE, NULL);
+  if (!entry)
+    fprintf(stderr, "** attempt to free pointer that was not allocated: %p\n", ptr);
   assert(entry);
 
   stat_num_deallocs++;

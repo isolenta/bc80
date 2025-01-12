@@ -6,6 +6,9 @@
 extern void mmgr_init();
 extern void mmgr_finish(bool dump_stats);
 
+// use it for 'set-like' hashmaps, when value doesn't make sense but presence makes
+#define XMMGR_DUMMY_PTR (void *)1
+
 void *xmalloc_(size_t size, const char *tag, const char *file, int line);
 void *xrealloc_(void *ptr, size_t size, const char *tag, const char *file, int line);
 void xfree_(void *ptr, const char *file, int line);

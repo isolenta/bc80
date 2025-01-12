@@ -16,7 +16,7 @@ dynarray_cell *dynarray_nth_cell(const dynarray *darray, int n)
 }
 
 // Return the last cell in a non-NULL dynarray
-static dynarray_cell *dynarray_last_cell(const dynarray *darray)
+dynarray_cell *dynarray_last_cell(const dynarray *darray)
 {
   assert(darray != NULL);
   return &darray->elements[darray->length - 1];

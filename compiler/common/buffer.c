@@ -120,6 +120,16 @@ int buffer_append(buffer *buf, const char *fmt, ...)
   return start;
 }
 
+// append null-terminated string
+int buffer_append_string(buffer *buf, const char *str)
+{
+  char *p = (char *)str;
+  int start = buf->len;
+  while (*p)
+    buffer_append_char(buf, *p++);
+  return start;
+}
+
 int buffer_appendv(buffer *buf, const char *fmt, va_list args)
 {
   int start = buf->len;

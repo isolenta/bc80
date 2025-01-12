@@ -69,10 +69,17 @@ int main(int argc, char **argv) {
   rcc_ctx_t context;
 
   mmgr_init();
+  retval = setjmp(rcc_env);
+  if (retval != 0) {
+    // returning from longjmp (error handler)
+    goto out;
+  }
   set_error_context(error_cb, warning_cb, &rcc_env);
 
-  context.includeopts = NULL;
+  memset(&context, 0, sizeof(context));
+
   context.constants = hashmap_create(128, "constants");
+  context.pp_files = hashmap_create(128, "preprocessed files");
 
   opterr = 0;
 
@@ -91,8 +98,17 @@ int main(int argc, char **argv) {
 
       case 'D': {
         dynarray *kvparts = split_string_sep(optarg, '=', true);
-        hashmap_search(context.constants, dinitial(kvparts), HASHMAP_INSERT,
-          (dynarray_length(kvparts) == 1) ? xstrdup("") : xstrdup(dsecond(kvparts)));
+        char *key = dinitial(kvparts);
+
+        if (!is_identifier(key))
+          generic_report_error("", 0, "invalid constant name: %s", key);
+
+        if (is_keyword(key))
+          generic_report_error("", 0, "can't redefine keyword: %s", key);
+
+        char *value = (dynarray_length(kvparts) == 1) ? "" : dsecond(kvparts);
+
+        hashmap_search(context.constants, key, HASHMAP_INSERT, xstrdup(value));
         break;
       }
 
@@ -157,12 +173,6 @@ int main(int argc, char **argv) {
     asm_outfile = fs_replace_suffix(infile, "asm");
   if (obj_outfile == NULL)
     obj_outfile = fs_replace_suffix(infile, "obj");
-
-  retval = setjmp(rcc_env);
-  if (retval != 0) {
-    // returning from longjmp (error handler)
-    goto out;
-  }
 
   context.in_filename = fs_abs_path(infile, NULL);
 
