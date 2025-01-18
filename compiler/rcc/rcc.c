@@ -43,9 +43,11 @@ static void print_usage(char *cmd) {
          "  -Ipath            add directory to include search path list\n"
          "  -Dkey[=value]     define symbol for preprocessor\n"
          "  -e                produce preprocessor output\n"
+         "  -p                produce parse tree output\n"
          "  -a                produce AST output\n"
          "  -s                produce assembler output\n"
-         "  --pp-filename <filename>  if preprocessor output produced, use specified filename for result\n"
+         "  --pp-filename <filename>   if preprocessor output produced, use specified filename for result\n"
+         "  --pt-filename <filename>   if parse tree output produced, use specified filename for result\n"
          "  --ast-filename <filename>  if AST output produced, use specified filename for result\n"
          "  --asm-filename <filename>  if assembler output produced, use specified filename for result\n"
          "  --obj-filename <filename>  use specified filename for object file produced\n"
@@ -60,10 +62,12 @@ int main(int argc, char **argv) {
   char *infile = NULL;
   char *source = NULL;
   char *pp_outfile = NULL;
+  char *pt_outfile = NULL;
   char *ast_outfile = NULL;
   char *asm_outfile = NULL;
   char *obj_outfile = NULL;
   bool out_pp = false;
+  bool out_pt = false;
   bool out_ast = false;
   bool out_asm = false;
   rcc_ctx_t context;
@@ -85,13 +89,14 @@ int main(int argc, char **argv) {
 
   const struct option long_options[] = {
     {"pp-filename",          required_argument, NULL, 1},
-    {"ast-filename",         required_argument, NULL, 2},
-    {"asm-filename",         required_argument, NULL, 3},
-    {"obj-filename",         required_argument, NULL, 4},
+    {"pt-filename",          required_argument, NULL, 2},
+    {"ast-filename",          required_argument, NULL, 3},
+    {"asm-filename",         required_argument, NULL, 4},
+    {"obj-filename",         required_argument, NULL, 5},
     {0, 0, 0, 0}
   };
 
-  while ((optflag = getopt_long(argc, argv, "hD:I:eas", long_options, NULL)) != -1) {
+  while ((optflag = getopt_long(argc, argv, "hD:I:epas", long_options, NULL)) != -1) {
     switch (optflag) {
       case 0:
         break;
@@ -120,8 +125,8 @@ int main(int argc, char **argv) {
         out_pp = true;
         break;
 
-      case 'a':
-        out_ast = true;
+      case 'p':
+        out_pt = true;
         break;
 
       case 's':
@@ -133,14 +138,18 @@ int main(int argc, char **argv) {
         break;
 
       case 2:
-        ast_outfile = xstrdup(optarg);
+        pt_outfile = xstrdup(optarg);
         break;
 
       case 3:
-        asm_outfile = xstrdup(optarg);
+        ast_outfile = xstrdup(optarg);
         break;
 
       case 4:
+        asm_outfile = xstrdup(optarg);
+        break;
+
+      case 5:
         obj_outfile = xstrdup(optarg);
         break;
 
@@ -167,6 +176,8 @@ int main(int argc, char **argv) {
 
   if (out_pp && pp_outfile == NULL)
     pp_outfile = fs_replace_suffix(infile, "pp");
+  if (out_pt && pt_outfile == NULL)
+    pt_outfile = fs_replace_suffix(infile, "pt");
   if (out_ast && ast_outfile == NULL)
     ast_outfile = fs_replace_suffix(infile, "ast");
   if (out_asm && asm_outfile == NULL)
@@ -184,15 +195,25 @@ int main(int argc, char **argv) {
     write_file(preproc_output, strlen(preproc_output), pp_outfile);
   }
 
-  // stage 2: parse source text and produce AST
-  void *ast_output = do_parse(&context, preproc_output);
+  context.pp_output_str = preproc_output;
+
+  // stage 2: parse source text and produce parse tree
+  void *pt_output = do_parse(&context, preproc_output);
+  if (out_pt && pt_output) {
+    char *pt_str = dump_parse_tree(pt_output);
+    write_file(pt_str, strlen(pt_str), pt_outfile);
+    xfree(pt_str);
+  }
+
+  // stage 3: produce AST from parse tree
+  void *ast_output = do_ast(&context, NULL);
   if (out_ast && ast_output) {
     char *ast_str = dump_ast(ast_output);
     write_file(ast_str, strlen(ast_str), ast_outfile);
     xfree(ast_str);
   }
 
-  // stage 3: produce assembler from AST
+  // stage 4: produce assembler from AST
   char *asm_output = do_compile(&context, ast_output);
   if (out_asm && asm_output) {
     write_file(asm_output, strlen(asm_output), asm_outfile);
@@ -214,6 +235,7 @@ int main(int argc, char **argv) {
   write_file(obj_dest, obj_size, obj_outfile);
 
   xfree(preproc_output);
+  parse_tree_free(pt_output);
   ast_free(ast_output);
   xfree(asm_output);
 

@@ -7,10 +7,16 @@
 #include "common/mmgr.h"
 #include "common/dynarray.h"
 #include "rcc/rcc.h"
-#include "rcc/scanner.h"
+#include "rcc/parser.h"
+#include "rcc/parse_nodes.h"
 
 #include "rc_parser.tab.h"
+
+#undef YY_DECL
+#define YY_DECL int rc_lex (yyscan_t yyscanner, rcc_ctx_t *ctx)
 #include "rc_lexer.yy.h"
+
+extern int rc_lex (yyscan_t yyscanner, rcc_ctx_t *ctx);
 
 const char *keywords[] = {
   "assert", "break", "case", "i8", "i16", "u8", "u16", "continue", "default",
@@ -98,11 +104,15 @@ char *get_current_token(yyscan_t scanner) {
   return result;
 }
 
-static void append_token(buffer *dest, bool *skipped, bool *first_on_line, int line_num, char *text) {
+static void append_position(buffer *dest, const char *filename, int line_num) {
+  buffer_append(dest, "#line \"%s\" %d\n", filename, line_num);
+}
+
+static void append_token(buffer *dest, bool *skipped, bool *first_on_line, const char *filename, int line_num, char *text) {
   // if there were tokens consuming while scan, append #line directive for correct diagnostics
   // for next processing stages
   if (*skipped) {
-    buffer_append(dest, "#line %d\n", line_num);
+    append_position(dest, filename, line_num);
     *skipped = false;
   }
 
@@ -121,7 +131,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
   struct scanner_state sstate = {0};
   bool first_on_line = true;
 
-  buffer_append(dest, "#file \"%s\"\n", filename);
+  append_position(dest, filename, 1);
 
   char *fullpath = fs_abs_path((char *)filename, ctx->includeopts);
   assert(fullpath);
@@ -130,17 +140,17 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
   hashmap_search(ctx->pp_files, fullpath, HASHMAP_INSERT, XMMGR_DUMMY_PTR);
 
   sstate.line_num = 1;
-  sstate.pos_num = 0;
   sstate.skipped = false;
+  sstate.nl_from_scanner = true;
 
   rc_lex_init(&scanner);
   rc_set_extra(&sstate, scanner);
   bstate = rc__scan_string(source, scanner);
 
-  int token = rc_lex(scanner);
+  int token = rc_lex(scanner, ctx);
   while (token) {
     // remember line num for the first token of directive (may be advanced during further processing)
-    int line_num = sstate.line_num + 1;
+    int line_num = sstate.line_num;
 
     // process only conditional directives according current conditional state
     #define COND_STATE_TRUE      1  // conditional was true, so we should process tokens as usual
@@ -150,10 +160,10 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
     switch (token) {
       case PP_IFDEF:
       case PP_IFNDEF: {
-        int next_token = rc_lex(scanner);
+        int next_token = rc_lex(scanner, ctx);
         int cond_state = COND_STATE_TRUE;
 
-        if (next_token != IDENTIFIER)
+        if (next_token != ID)
           generic_report_error(filename, line_num, "#ifdef: expected constant name");
 
         if (dynarray_length(ctx->pp_cond_stack) > 0) {
@@ -224,7 +234,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
     {
       dynarray_cell *top_cond_cell = dynarray_last_cell(ctx->pp_cond_stack);
       if (top_cond_cell->int_value != COND_STATE_TRUE) {
-        token = rc_lex(scanner);
+        token = rc_lex(scanner, ctx);
         continue;
       }
     }
@@ -238,7 +248,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
         break;
 
       case PP_INCLUDE: {
-        int next_token = rc_lex(scanner);
+        int next_token = rc_lex(scanner, ctx);
         if (next_token != STRING_LITERAL)
           generic_report_error(filename, line_num, "unexpected token after #include: %s", get_current_token(scanner));
 
@@ -265,16 +275,16 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
       }
 
       case PP_DEFINE: {
-        int next_token = rc_lex(scanner);
+        int next_token = rc_lex(scanner, ctx);
         char *key;
         char *value;
 
-        if (next_token != IDENTIFIER)
+        if (next_token != ID)
           generic_report_error(filename, line_num, "#define: expected constant name");
 
         key = get_current_token(scanner);
 
-        next_token = rc_lex(scanner);
+        next_token = rc_lex(scanner, ctx);
         if (next_token == '\n')
           value = xstrdup("");
         else
@@ -289,7 +299,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
       }
 
       case PP_ERROR: {
-        int next_token = rc_lex(scanner);
+        int next_token = rc_lex(scanner, ctx);
         if (next_token != STRING_LITERAL)
           generic_report_error(filename, line_num, "unexpected token after #warning: %s", get_current_token(scanner));
 
@@ -298,7 +308,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
       }
 
       case PP_WARNING: {
-        int next_token = rc_lex(scanner);
+        int next_token = rc_lex(scanner, ctx);
         if (next_token != STRING_LITERAL)
           generic_report_error(filename, line_num, "unexpected token after #warning: %s", get_current_token(scanner));
 
@@ -309,19 +319,20 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
       }
 
       case '\n':
+        // printf("found nl on %d\n", line_num);
         first_on_line = true;
         buffer_append_char(dest, '\n');
         break;
 
-      case IDENTIFIER: {
+      case ID: {
         char *key = get_current_token(scanner);
         char *value = (char *)hashmap_search(ctx->constants, key, HASHMAP_FIND, NULL);
 
         if (value) {
           // found constant with that name: replace to its value
-          append_token(dest, &sstate.skipped, &first_on_line, line_num, value);
+          append_token(dest, &sstate.skipped, &first_on_line, filename, line_num, value);
         } else {
-          append_token(dest, &sstate.skipped, &first_on_line, line_num, key);
+          append_token(dest, &sstate.skipped, &first_on_line, filename, line_num, key);
         }
 
         xfree(key);
@@ -330,18 +341,102 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
       }
 
       default: {
-        char *str = get_current_token(scanner);
-        append_token(dest, &sstate.skipped, &first_on_line, line_num, str);
+        char *str;
+
+        if (token == STRING_LITERAL)
+          str = bsprintf("\"%s\"", sstate.string_literal);
+        else
+          str = get_current_token(scanner);
+        append_token(dest, &sstate.skipped, &first_on_line, filename, line_num, str);
         xfree(str);
         break;
       }
     }
 
-    token = rc_lex(scanner);
+    token = rc_lex(scanner, ctx);
   }
 
   rc__delete_buffer(bstate, scanner);
   rc_lex_destroy(scanner);
+}
+
+extern int get_actual_position(rcc_ctx_t *ctx, int scanner_pos, char **filename) {
+  int line_num = 1;
+  bool found_scanner_pos = false;
+
+  char *p = ctx->pp_output_str;
+  while (*p) {
+    if (line_num == scanner_pos - 1) {
+      found_scanner_pos = true;
+      break;
+    }
+
+    // move to desired line
+    if (p[0] == '\n') {
+      line_num++;
+    }
+
+    p++;
+  }
+
+  if (!found_scanner_pos) {
+    if (filename)
+      *filename = NULL;
+    return -1;
+  }
+
+  int distance = 0;
+
+  // rewind until #line found
+  while(p > ctx->pp_output_str) {
+    p--;
+
+    if (*p == '\n')
+      distance++;
+
+    const char *pos_pattern = "\n#line ";
+    int len = strlen(pos_pattern);
+    if (memcmp(p, pos_pattern, len) == 0) {
+      p += len;
+      break;
+    }
+  }
+
+  // we're at file begin, nothing to adjust
+  if (p == ctx->pp_output_str)
+    return scanner_pos;
+
+  // #line found: skip filename and move to actual line num
+  assert(*p == '"');
+  p++;
+  char *filename_beg = p;
+  char *filename_end;
+  char *num_beg;
+  char *num_end;
+
+  while (*p++ != '"');
+  filename_end = p - 2;
+
+  // skip whitespace between filename and num
+  while (*p++ == ' ');
+  num_beg = p - 1;
+
+  while (*p++ != '\n');
+  num_end = p - 2;
+
+  char *file_str = xmalloc(filename_end - filename_beg + 2);
+  memcpy (file_str, filename_beg, (filename_end - filename_beg + 1));
+  file_str[filename_end - filename_beg + 1] = '\0';
+
+  char *num_str = xmalloc(num_end - num_beg + 2);
+  memcpy (num_str, num_beg, (num_end - num_beg + 1));
+  num_str[num_end - num_beg + 1] = '\0';
+
+  int pos = atoi(num_str);
+  if (filename)
+    *filename = file_str;
+
+  return pos + distance - 1;
 }
 
 char *do_preproc(rcc_ctx_t *ctx, const char *source) {
