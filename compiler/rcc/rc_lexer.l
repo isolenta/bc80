@@ -56,6 +56,9 @@ WHITESPACE                [ \t\v\f]
 "i16"                     { return(INT16); }
 "u8"                      { return(UINT8); }
 "u16"                     { return(UINT16); }
+"bool"                    { return(BOOL); }
+"false"                   { return(FALSE); }
+"true"                    { return(TRUE); }
 "continue"                { return(CONTINUE); }
 "default"                 { return(DEFAULT); }
 "do"                      { return(DO); }

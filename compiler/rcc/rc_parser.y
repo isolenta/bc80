@@ -68,7 +68,7 @@
 %token  XOR_ASSIGN OR_ASSIGN
 
 %token  STATIC INLINE VOLATILE
-%token  INT8 UINT8 INT16 UINT16 VOID STRUCT
+%token  INT8 UINT8 INT16 UINT16 VOID STRUCT BOOL FALSE TRUE
 
 %token  CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
 
@@ -107,16 +107,31 @@ constant
   : INT_LITERAL    /* includes character_constant */
   {
     LITERAL *node = CreateParseNode(LITERAL, @1.first_line);
-    node->kind = INT;
+    node->kind = LITINT;
     node->ival = $1;
     $$ = (ParseNode *)node;
-  };
+  }
+  | FALSE
+  {
+    LITERAL *node = CreateParseNode(LITERAL, @1.first_line);
+    node->kind = LITBOOL;
+    node->bval = false;
+    $$ = (ParseNode *)node;
+  }
+  | TRUE
+  {
+    LITERAL *node = CreateParseNode(LITERAL, @1.first_line);
+    node->kind = LITBOOL;
+    node->bval = true;
+    $$ = (ParseNode *)node;
+  }
+  ;
 
 string
   : STRING_LITERAL
   {
     LITERAL *node = CreateParseNode(LITERAL, @1.first_line);
-    node->kind = STR;
+    node->kind = LITSTR;
     node->strval = $1;
     $$ = (ParseNode *)node;
   };
@@ -416,6 +431,9 @@ type_specifier
   }
   | UINT16 {
     RULE_SPECIFIER($$, SPEC_UINT16, @1.first_line);
+  }
+  | BOOL {
+    RULE_SPECIFIER($$, SPEC_BOOL, @1.first_line);
   }
   | struct_specifier { $$ = $1; }
   ;

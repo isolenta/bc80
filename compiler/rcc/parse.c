@@ -62,9 +62,9 @@ static void parse_node_dump(buffer *dest, int indent, const char *prefix, ParseN
     }
     case T_LITERAL: {
       LITERAL *l = (LITERAL *)node;
-      if (l->kind == STR) {
+      if (l->kind == LITSTR) {
         char *p = l->strval;
-        buffer_append_string(dest, "strval=\"");
+        buffer_append_string(dest, "\"");
         while (*p) {
           char c = *p++;
           if (isprint(c))
@@ -74,8 +74,10 @@ static void parse_node_dump(buffer *dest, int indent, const char *prefix, ParseN
         }
         buffer_append_char(dest, '"');
       }
-      else if (l->kind == INT)
-        buffer_append(dest, "ival=\"%d\"", l->ival);
+      else if (l->kind == LITINT)
+        buffer_append(dest, "%d", l->ival);
+      else if (l->kind == LITBOOL)
+        buffer_append(dest, "%s", (l->bval ? "true" : "false"));
       break;
     }
     case T_IDENTIFIER: {
@@ -203,7 +205,7 @@ static bool parse_node_free_walker(ParseNode *node, void *dummy) {
 
   if (node->type == T_LITERAL) {
     LITERAL *l = (LITERAL *)node;
-    if (l->kind == STR)
+    if (l->kind == LITSTR)
       xfree(l->strval);
   } else if (node->type == T_IDENTIFIER) {
     IDENTIFIER *id = (IDENTIFIER *)node;

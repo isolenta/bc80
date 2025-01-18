@@ -42,8 +42,9 @@ typedef enum NodeType
 
 typedef enum LiteralKind
 {
-  INT = 0,
-  STR,
+  LITINT = 0,
+  LITSTR,
+  LITBOOL,
 } LiteralKind;
 
 typedef enum ExpressionKind {
@@ -101,6 +102,7 @@ typedef enum SpecifierKind {
   SPEC_UINT8,
   SPEC_INT16,
   SPEC_UINT16,
+  SPEC_BOOL,
   SPEC_STRUCT,
 } SpecifierKind;
 
@@ -167,6 +169,7 @@ typedef struct LITERAL {
   LiteralKind kind;
   int ival;
   char *strval;
+  bool bval;
 } LITERAL;
 
 struct IDENTIFIER {
@@ -404,6 +407,8 @@ static inline const char *parse_node_specifier_kind(SpecifierKind kind) {
       return "i16";
     case SPEC_UINT16:
       return "u16";
+    case SPEC_BOOL:
+      return "bool";
     case SPEC_STRUCT:
       return "struct";
   }

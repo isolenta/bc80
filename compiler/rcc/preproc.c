@@ -22,7 +22,8 @@ const char *keywords[] = {
   "assert", "break", "case", "i8", "i16", "u8", "u16", "continue", "default",
   "do", "else", "for", "goto", "if", "inline", "return", "sizeof", "static",
   "struct", "switch", "void", "volatile", "while", "#include", "#define",
-  "#ifdef", "#ifndef", "#else", "#endif", "#error", "#warning", "#line", "#file",
+  "#ifdef", "#ifndef", "#else", "#endif", "#error", "#warning", "#line",
+  "bool", "false", "true",
 };
 
 const char *operators[] = {
