@@ -16,7 +16,7 @@
     extern int rc_lex (yyscan_t yyscanner, rcc_ctx_t *ctx);
 
     void rc_error(yyscan_t scanner, rcc_ctx_t *ctx, const char *msg) {
-      char *filename;
+      char *filename = ctx->in_filename;
       int adjusted_line = ctx->scanner_state.line_num + ctx->parser_state.last_pp_line - ctx->parser_state.last_actual_line;
       int act_pos = get_actual_position(ctx, ctx->scanner_state.line_num, &filename);
       generic_report_error(basename(filename), act_pos, "%s", msg);
@@ -61,7 +61,7 @@
 
 %token  <ival> INT_LITERAL
 %token  <strval> STRING_LITERAL ID
-%token  ASSERT SIZEOF
+%token  ASSERT SIZEOF END_OF_COMMENT WHITESPACE BACKSLASH
 %token  PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
 %token  AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
 %token  SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN

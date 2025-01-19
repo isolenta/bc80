@@ -21,6 +21,12 @@
     yyextra->line_num++;        \
   } while (0)
 
+  #define ESCAPED_INT_LITERAL(_ival) do {  \
+    rc_lval.ival = _ival;                  \
+    yyextra->int_literal = rc_lval.ival;   \
+    return INT_LITERAL;                    \
+  } while (0)
+
   buffer *literal_buf;
 %}
 
@@ -40,12 +46,24 @@ WHITESPACE                [ \t\v\f]
 
 %%
 
-"\n"                      { NEWLINE; if (yyextra->nl_from_scanner) return '\n'; }
+"\n"                      { NEWLINE; if (yyextra->scan_standalone) return '\n'; }
 
-<INITIAL>"/*"             { BEGIN(COMMENT); yyextra->skipped = true; }
-<COMMENT>"*/"             { BEGIN(INITIAL); }
-<COMMENT>\n               { NEWLINE; }
-<COMMENT>.                { }
+<INITIAL>"/*"             {
+  BEGIN(COMMENT);
+  yyextra->num_comment_lines = 0;
+}
+
+<COMMENT>"*/"             {
+  BEGIN(INITIAL);
+  return(END_OF_COMMENT);
+}
+
+<COMMENT>\n               {
+  NEWLINE;
+  yyextra->num_comment_lines++;
+}
+
+<COMMENT>.                { /* consume anything else inside comment block */ }
 
 "//".*                    { /* consume //-comment */ }
 
@@ -97,18 +115,21 @@ WHITESPACE                [ \t\v\f]
 
 {HEXPREFIX}{HEXNUM}+      {
   rc_lval.ival = parse_int(yytext, yyleng, HEX);
+  yyextra->int_literal = rc_lval.ival;
   return INT_LITERAL;
 }
 
 {DECIMAL}*                {
   rc_lval.ival = parse_int(yytext, yyleng, DEC);
+  yyextra->int_literal = rc_lval.ival;
   return INT_LITERAL;
 }
 
-<INITIAL>\"               { BEGIN(STRLITERAL); literal_buf = buffer_init(); }
-<STRLITERAL>[^\"] {
-  buffer_append_char(literal_buf, *yytext);
+'\"'                        {
+  ESCAPED_INT_LITERAL(34);
 }
+
+<INITIAL>\"               { BEGIN(STRLITERAL); literal_buf = buffer_init(); }
 
 <STRLITERAL>\"            {
   BEGIN(INITIAL);
@@ -118,6 +139,41 @@ WHITESPACE                [ \t\v\f]
   yyextra->string_literal = rc_lval.strval;
   return STRING_LITERAL;
 }
+
+<STRLITERAL>\\\"          {
+  buffer_append_char(literal_buf, '\\');
+  buffer_append_char(literal_buf, '\"');
+}
+
+<STRLITERAL>[^\"]         {
+  buffer_append_char(literal_buf, *yytext);
+}
+
+'\\n'                       {
+  ESCAPED_INT_LITERAL(10);
+}
+
+'\\r'                       {
+  ESCAPED_INT_LITERAL(13);
+}
+
+'\\t'                       {
+  ESCAPED_INT_LITERAL(9);
+}
+
+'\\\''                      {
+  ESCAPED_INT_LITERAL(39);
+}
+
+'\\{DECIMAL}'               {
+  ESCAPED_INT_LITERAL((int)(yytext[2] - '0'));
+}
+
+'{ALNUM}'                 {
+  ESCAPED_INT_LITERAL(yytext[1]);
+}
+
+"\\\n"                    { if (yyextra->scan_standalone) return BACKSLASH; }
 
 ">>="                     { return RIGHT_ASSIGN; }
 "<<="                     { return LEFT_ASSIGN; }
@@ -165,6 +221,13 @@ WHITESPACE                [ \t\v\f]
 "|"                       { return '|'; }
 "?"                       { return '?'; }
 
-{WHITESPACE}+             { }
+{WHITESPACE}+             {
+  if (yyextra->scan_standalone) {
+    yyextra->whitespace_str = xmalloc(yyleng + 1);
+    memcpy(yyextra->whitespace_str, yytext, yyleng);
+    yyextra->whitespace_str[yyleng] = '\0';
+    return WHITESPACE;
+  }
+}
 
 %%

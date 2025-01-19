@@ -42,6 +42,9 @@ static void print_usage(char *cmd) {
          "  -h                this help\n"
          "  -Ipath            add directory to include search path list\n"
          "  -Dkey[=value]     define symbol for preprocessor\n"
+         "  -E                only preprocessor stage\n"
+         "  -P                only preprocessor and parse tree stages\n"
+         "  -A                only preprocessor, parse tree, AST stages\n"
          "  -e                produce preprocessor output\n"
          "  -p                produce parse tree output\n"
          "  -a                produce AST output\n"
@@ -55,6 +58,16 @@ static void print_usage(char *cmd) {
          cmd
   );
 }
+
+enum {
+  STAGE_NONE = 0,
+  STAGE_PREPROC,
+  STAGE_PARSETREE,
+  STAGE_AST,
+  STAGE_CODEGEN,
+  STAGE_ASM,
+  STAGE_LAST,
+} rcc_processing_stage;
 
 int main(int argc, char **argv) {
   int optflag;
@@ -70,6 +83,7 @@ int main(int argc, char **argv) {
   bool out_pt = false;
   bool out_ast = false;
   bool out_asm = false;
+  int last_stage = STAGE_LAST;
   rcc_ctx_t context;
 
   mmgr_init();
@@ -96,7 +110,7 @@ int main(int argc, char **argv) {
     {0, 0, 0, 0}
   };
 
-  while ((optflag = getopt_long(argc, argv, "hD:I:epas", long_options, NULL)) != -1) {
+  while ((optflag = getopt_long(argc, argv, "hD:I:epasEPA", long_options, NULL)) != -1) {
     switch (optflag) {
       case 0:
         break;
@@ -157,6 +171,18 @@ int main(int argc, char **argv) {
         fprintf(stderr, "missing option argument\n");
         break;
 
+      case 'E':
+        last_stage = STAGE_PREPROC;
+        break;
+
+      case 'P':
+        last_stage = STAGE_PARSETREE;
+        break;
+
+      case 'A':
+        last_stage = STAGE_AST;
+        break;
+
       case '?':
       case 'h':
       default:
@@ -189,35 +215,55 @@ int main(int argc, char **argv) {
 
   source = read_file(infile);
 
+  char *preproc_output = NULL;
+  void *pt_output = NULL;
+  void *ast_output = NULL;
+  char *asm_output = NULL;
+
+  if (last_stage == STAGE_NONE)
+    goto out;
+
   // stage 1: preprocessing
-  char *preproc_output = do_preproc(&context, source);
+  preproc_output = do_preproc(&context, source);
   if (out_pp && preproc_output) {
     write_file(preproc_output, strlen(preproc_output), pp_outfile);
   }
 
   context.pp_output_str = preproc_output;
 
+  if (last_stage == STAGE_PREPROC)
+    goto out;
+
   // stage 2: parse source text and produce parse tree
-  void *pt_output = do_parse(&context, preproc_output);
+  pt_output = do_parse(&context, preproc_output);
   if (out_pt && pt_output) {
     char *pt_str = dump_parse_tree(pt_output);
     write_file(pt_str, strlen(pt_str), pt_outfile);
     xfree(pt_str);
   }
 
+  if (last_stage == STAGE_PARSETREE)
+    goto out;
+
   // stage 3: produce AST from parse tree
-  void *ast_output = do_ast(&context, NULL);
+  ast_output = do_ast(&context, NULL);
   if (out_ast && ast_output) {
     char *ast_str = dump_ast(ast_output);
     write_file(ast_str, strlen(ast_str), ast_outfile);
     xfree(ast_str);
   }
 
+  if (last_stage == STAGE_AST)
+    goto out;
+
   // stage 4: produce assembler from AST
-  char *asm_output = do_compile(&context, ast_output);
+  asm_output = do_compile(&context, ast_output);
   if (out_asm && asm_output) {
     write_file(asm_output, strlen(asm_output), asm_outfile);
   }
+
+  if (last_stage == STAGE_CODEGEN)
+    goto out;
 
   // stage 4: produce binary (ELF object) from assembler
   struct libasm_as_desc_t as_desc;
@@ -234,12 +280,22 @@ int main(int argc, char **argv) {
   libasm_as(&as_desc);
   write_file(obj_dest, obj_size, obj_outfile);
 
-  xfree(preproc_output);
-  parse_tree_free(pt_output);
-  ast_free(ast_output);
-  xfree(asm_output);
+  if (last_stage == STAGE_ASM)
+    goto out;
 
 out:
+  if (preproc_output)
+    xfree(preproc_output);
+
+  if (pt_output)
+    parse_tree_free(pt_output);
+
+  if (ast_output)
+    ast_free(ast_output);
+
+  if (asm_output)
+    xfree(asm_output);
+
   if (source)
     xfree(source);
 

@@ -11,8 +11,11 @@ typedef enum IntegerBase
 struct scanner_state {
   bool skipped;
   int line_num;
-  bool nl_from_scanner;
+  bool scan_standalone;   // true: at preprocessor stage; false: controlled by parser
   char *string_literal;
+  int int_literal;
+  int num_comment_lines;
+  char *whitespace_str;
 };
 
 struct parser_state {

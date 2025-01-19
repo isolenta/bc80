@@ -52,6 +52,5 @@ extern char *do_compile(rcc_ctx_t *ctx, void *ast);
 extern bool is_keyword(const char *id);
 extern bool is_operator(const char *id);
 extern bool is_identifier(const char *id);
-extern char *pure_string_literal(char *lit);
 extern char *get_current_token(yyscan_t scanner);
 extern int get_actual_position(rcc_ctx_t *ctx, int scanner_pos, char **filename);

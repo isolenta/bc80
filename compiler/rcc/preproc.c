@@ -65,26 +65,6 @@ bool is_identifier(const char *id) {
   return true;
 }
 
-// skip bounding double quotes if any
-// or return NULL if there aren't.
-// returns xmalloc-ed string.
-char *pure_string_literal(char *lit) {
-  if (!lit)
-    return NULL;
-
-  char *last_ch = lit + strlen(lit) - 1;
-
-  while(*last_ch == '\n')
-    last_ch--;
-
-  if ((lit[0] != '"') || (*last_ch != '"'))
-    return NULL;
-
-  char *result = xstrdup(lit + 1);
-  result[last_ch - lit - 1] = '\0';
-  return result;
-}
-
 char *get_current_token(yyscan_t scanner) {
   char *ptext = rc_get_text(scanner);
 
@@ -109,28 +89,17 @@ static void append_position(buffer *dest, const char *filename, int line_num) {
   buffer_append(dest, "#line \"%s\" %d\n", filename, line_num);
 }
 
-static void append_token(buffer *dest, bool *skipped, bool *first_on_line, const char *filename, int line_num, char *text) {
-  // if there were tokens consuming while scan, append #line directive for correct diagnostics
-  // for next processing stages
+static void check_alter_position(buffer *dest, bool *skipped, const char *filename, int line_num) {
   if (*skipped) {
     append_position(dest, filename, line_num);
     *skipped = false;
   }
-
-  // separate tokens by whitespace to preserve 'tokenized' stream for next processing stages
-  if (*first_on_line)
-    *first_on_line = false;
-  else
-    buffer_append_char(dest, ' ');
-
-  buffer_append_string(dest, text);
 }
 
 static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, const char *source) {
   yyscan_t scanner;
   struct yy_buffer_state *bstate;
   struct scanner_state sstate = {0};
-  bool first_on_line = true;
 
   append_position(dest, filename, 1);
 
@@ -142,7 +111,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
 
   sstate.line_num = 1;
   sstate.skipped = false;
-  sstate.nl_from_scanner = true;
+  sstate.scan_standalone = true;
 
   rc_lex_init(&scanner);
   rc_set_extra(&sstate, scanner);
@@ -153,6 +122,10 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
     // remember line num for the first token of directive (may be advanced during further processing)
     int line_num = sstate.line_num;
 
+    if (token != '\n' && dest->len > 0 && dest->data[dest->len - 1] == '\n') {
+      check_alter_position(dest, &sstate.skipped, filename, line_num);
+    }
+
     // process only conditional directives according current conditional state
     #define COND_STATE_TRUE      1  // conditional was true, so we should process tokens as usual
     #define COND_STATE_FALSE     2  // conditional was false, so we shouldn't process tokens; it can inverted by #else
@@ -161,9 +134,17 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
     switch (token) {
       case PP_IFDEF:
       case PP_IFNDEF: {
-        int next_token = rc_lex(scanner, ctx);
+        int next_token;
+
+        // consume whitespace between tokens
+        next_token = rc_lex(scanner, ctx);
+        if (next_token != WHITESPACE)
+          generic_report_error(filename, line_num, "#%s: expected whitespace",
+            ((token == PP_IFDEF) ? "ifdef" : "ifndef"));
+
         int cond_state = COND_STATE_TRUE;
 
+        next_token = rc_lex(scanner, ctx);
         if (next_token != ID)
           generic_report_error(filename, line_num, "#ifdef: expected constant name");
 
@@ -236,6 +217,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
       dynarray_cell *top_cond_cell = dynarray_last_cell(ctx->pp_cond_stack);
       if (top_cond_cell->int_value != COND_STATE_TRUE) {
         token = rc_lex(scanner, ctx);
+        sstate.skipped = false;
         continue;
       }
     }
@@ -249,13 +231,20 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
         break;
 
       case PP_INCLUDE: {
-        int next_token = rc_lex(scanner, ctx);
-        if (next_token != STRING_LITERAL)
-          generic_report_error(filename, line_num, "unexpected token after #include: %s", get_current_token(scanner));
+        int next_token;
 
-        char *inc_filename = pure_string_literal(get_current_token(scanner));
+        // consume whitespace between tokens
+        next_token = rc_lex(scanner, ctx);
+        if (next_token != WHITESPACE)
+          generic_report_error(filename, line_num, "#include: expected whitespace");
+
+        next_token = rc_lex(scanner, ctx);
+        if (next_token != STRING_LITERAL)
+          generic_report_error(filename, line_num, "#include:  expected string literal");
+
+        char *inc_filename = sstate.string_literal;
         if (!inc_filename)
-          generic_report_error(filename, line_num, "unexpected string literal for #include: %s", get_current_token(scanner));
+          generic_report_error(filename, line_num, "#include: unexpected string literal %s", get_current_token(scanner));
 
         sstate.skipped = true;
 
@@ -276,9 +265,17 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
       }
 
       case PP_DEFINE: {
-        int next_token = rc_lex(scanner, ctx);
+        int next_token;
         char *key;
         char *value;
+        bool multiline_define = false;
+
+        // consume whitespace between tokens
+        next_token = rc_lex(scanner, ctx);
+        if (next_token != WHITESPACE)
+          generic_report_error(filename, line_num, "#define: expected whitespace");
+
+        next_token = rc_lex(scanner, ctx);
 
         if (next_token != ID)
           generic_report_error(filename, line_num, "#define: expected constant name");
@@ -286,13 +283,42 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
         key = get_current_token(scanner);
 
         next_token = rc_lex(scanner, ctx);
-        if (next_token == '\n')
+        if (next_token == '\n') {
           value = xstrdup("");
-        else
-          value = get_current_token(scanner);
+        } else {
+          // #define with value: must be whitespace
+          if (next_token != WHITESPACE)
+            generic_report_error(filename, line_num, "#define: expected whitespace");
+
+          // get all tokens until newline
+          buffer *value_buf = buffer_init();
+          for (;;) {
+            next_token = rc_lex(scanner, ctx);
+
+            if (next_token == '\n') {
+              break;
+            } else if (next_token == BACKSLASH) {
+              sstate.line_num++;
+              multiline_define = true;
+              continue;
+            } else if (next_token == WHITESPACE) {
+              buffer_append_string(value_buf, sstate.whitespace_str);
+              xfree(sstate.whitespace_str);
+            } else if (next_token == STRING_LITERAL) {
+              buffer_append_string(value_buf, sstate.string_literal);
+            } else if (next_token == INT_LITERAL) {
+              buffer_append(value_buf, "%d", sstate.int_literal);
+            } else {
+              buffer_append_string(value_buf, get_current_token(scanner));
+            }
+          }
+
+          value = buffer_dup(value_buf);
+          buffer_free(value_buf);
+        }
 
         hashmap_search(ctx->constants, key, HASHMAP_INSERT, value);
-        sstate.skipped = true;
+        sstate.skipped = multiline_define;
 
         xfree(key);
 
@@ -300,28 +326,39 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
       }
 
       case PP_ERROR: {
-        int next_token = rc_lex(scanner, ctx);
-        if (next_token != STRING_LITERAL)
-          generic_report_error(filename, line_num, "unexpected token after #warning: %s", get_current_token(scanner));
+        int next_token;
 
-        generic_report_error(filename, line_num, "%s", get_current_token(scanner));
+        // consume whitespace between tokens
+        next_token = rc_lex(scanner, ctx);
+        if (next_token != WHITESPACE)
+          generic_report_error(filename, line_num, "#error: expected whitespace");
+
+        next_token = rc_lex(scanner, ctx);
+        if (next_token != STRING_LITERAL)
+          generic_report_error(filename, line_num, "#error: expected string literal");
+
+        generic_report_error(filename, line_num, "%s", sstate.string_literal);
         break;
       }
 
       case PP_WARNING: {
-        int next_token = rc_lex(scanner, ctx);
-        if (next_token != STRING_LITERAL)
-          generic_report_error(filename, line_num, "unexpected token after #warning: %s", get_current_token(scanner));
+        int next_token;
 
-        generic_report_warning(filename, line_num, "%s", get_current_token(scanner));
-        sstate.skipped = true;
+        // consume whitespace between tokens
+        next_token = rc_lex(scanner, ctx);
+        if (next_token != WHITESPACE)
+          generic_report_error(filename, line_num, "#warning: expected whitespace");
+
+        next_token = rc_lex(scanner, ctx);
+        if (next_token != STRING_LITERAL)
+          generic_report_error(filename, line_num, "#warning: expected string literal");
+
+        generic_report_warning(filename, line_num, "%s", sstate.string_literal);
 
         break;
       }
 
       case '\n':
-        // printf("found nl on %d\n", line_num);
-        first_on_line = true;
         buffer_append_char(dest, '\n');
         break;
 
@@ -329,11 +366,13 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
         char *key = get_current_token(scanner);
         char *value = (char *)hashmap_search(ctx->constants, key, HASHMAP_FIND, NULL);
 
+        // check_alter_position(dest, &sstate.skipped, filename, line_num);
+
         if (value) {
           // found constant with that name: replace to its value
-          append_token(dest, &sstate.skipped, &first_on_line, filename, line_num, value);
+          buffer_append_string(dest, value);
         } else {
-          append_token(dest, &sstate.skipped, &first_on_line, filename, line_num, key);
+          buffer_append_string(dest, key);
         }
 
         xfree(key);
@@ -341,14 +380,33 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
         break;
       }
 
-      default: {
-        char *str;
+      case STRING_LITERAL:
+        buffer_append_char(dest, '"');
+        buffer_append_string(dest, sstate.string_literal);
+        buffer_append_char(dest, '"');
+        xfree(sstate.string_literal);
+        break;
 
-        if (token == STRING_LITERAL)
-          str = bsprintf("\"%s\"", sstate.string_literal);
-        else
-          str = get_current_token(scanner);
-        append_token(dest, &sstate.skipped, &first_on_line, filename, line_num, str);
+      case INT_LITERAL:
+        buffer_append(dest, "%d", sstate.int_literal);
+        break;
+
+      case END_OF_COMMENT:
+        // replace multiline comment to th same number of empty lines
+        for (int i = 0; i < sstate.num_comment_lines; i++)
+          buffer_append_char(dest, '\n');
+        break;
+
+      case WHITESPACE:
+        // for preprocessed output preserve the same whitespaces (if any) between tokens
+        buffer_append_string(dest, sstate.whitespace_str);
+        xfree(sstate.whitespace_str);
+        break;
+
+      default: {
+        char *str = get_current_token(scanner);
+        // check_alter_position(dest, &sstate.skipped, filename, line_num);
+        buffer_append_string(dest, str);
         xfree(str);
         break;
       }

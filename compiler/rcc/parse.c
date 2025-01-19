@@ -370,7 +370,7 @@ void *do_parse(rcc_ctx_t *ctx, char *source) {
   memset(&ctx->parser_state, 0, sizeof(struct parser_state));
   ctx->parse_tree_top = CreatePrimitiveParseNode(UNIT, 0);
   ctx->scanner_state.line_num = 1;
-  ctx->scanner_state.nl_from_scanner = false;
+  ctx->scanner_state.scan_standalone = false;
 
   rc_lex_init(&scanner);
   rc_set_extra(&ctx->scanner_state, scanner);
