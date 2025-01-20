@@ -418,7 +418,7 @@ int parse_int(const char *str, int len, IntegerBase base)
 
   result = strtol(tmp, &endptr, basenum);
   if (endptr == tmp) {
-    generic_report_error(NULL, 0, "error parse decimal integer: %s", str);
+    generic_report_error(NULL, 0, 0, "error parse decimal integer: %s", str);
   }
 
   return result;

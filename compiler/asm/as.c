@@ -34,7 +34,8 @@ static void print_usage(char *cmd) {
   );
 }
 
-static int error_cb(const char *message, const char *filename, int line) {
+static int error_cb(const char *message, const char *filename, int line, int pos) {
+  (void)pos;
   fprintf(stderr, "\x1b[31m");
   if (line > 0)
     fprintf(stderr, "Error in %s:%d: ", filename, line);
@@ -44,7 +45,8 @@ static int error_cb(const char *message, const char *filename, int line) {
   return 1;
 }
 
-static void warning_cb(const char *message, const char *filename, int line) {
+static void warning_cb(const char *message, const char *filename, int line, int pos) {
+  (void)pos;
   fprintf(stderr, "\x1b[33m");
   if (line > 0)
     fprintf(stderr, "Warning in %s:%d: ", filename, line);

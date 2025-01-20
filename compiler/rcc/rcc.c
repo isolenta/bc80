@@ -16,20 +16,26 @@
 
 static jmp_buf rcc_env;
 
-static int error_cb(const char *message, const char *filename, int line) {
+static int error_cb(const char *message, const char *filename, int line, int pos) {
   fprintf(stderr, "\x1b[31m");
   if (line > 0)
-    fprintf(stderr, "Error in %s:%d: ", filename, line);
+    if (pos > 0)
+      fprintf(stderr, "Error in %s:%d:%d: ", filename, line, pos);
+    else
+      fprintf(stderr, "Error in %s:%d: ", filename, line);
   else
     fprintf(stderr, "Error: ");
   fprintf(stderr, "%s\x1b[0m\n", message);
   return 1;
 }
 
-static void warning_cb(const char *message, const char *filename, int line) {
+static void warning_cb(const char *message, const char *filename, int line, int pos) {
   fprintf(stderr, "\x1b[33m");
   if (line > 0)
-    fprintf(stderr, "Warning in %s:%d: ", filename, line);
+    if (pos > 0)
+      fprintf(stderr, "Warning in %s:%d:%d: ", filename, line, pos);
+    else
+      fprintf(stderr, "Warning in %s:%d: ", filename, line);
   else
     fprintf(stderr, "Warning: ");
   fprintf(stderr, "%s\x1b[0m\n", message);
@@ -120,10 +126,10 @@ int main(int argc, char **argv) {
         char *key = dinitial(kvparts);
 
         if (!is_identifier(key))
-          generic_report_error("", 0, "invalid constant name: %s", key);
+          generic_report_error("", 0, 0, "invalid constant name: %s", key);
 
         if (is_keyword(key))
-          generic_report_error("", 0, "can't redefine keyword: %s", key);
+          generic_report_error("", 0, 0, "can't redefine keyword: %s", key);
 
         char *value = (dynarray_length(kvparts) == 1) ? "" : dsecond(kvparts);
 

@@ -14,7 +14,7 @@
     void yyerror(yyscan_t scanner, dynarray **statements, struct libasm_as_desc_t *desc, const char *msg) {
       (void)scanner;
       (void)statements;
-      generic_report_error(desc->filename, yylloc.first_line + 1, (char *) msg);
+      generic_report_error(desc->filename, yylloc.first_line + 1, 0, (char *) msg);
     }
 %}
 

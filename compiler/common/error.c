@@ -18,7 +18,7 @@ void set_error_context(error_callback_type error_cb, warning_callback_type warni
   error_context.error_env = error_env;
 }
 
-void generic_report_error(const char *filename, int line, char *fmt, ...) {
+void generic_report_error(const char *filename, int line, int pos, char *fmt, ...) {
   if (error_context.error_cb) {
     va_list args;
     buffer *msgbuf = buffer_init();
@@ -27,7 +27,7 @@ void generic_report_error(const char *filename, int line, char *fmt, ...) {
     buffer_append_va(msgbuf, fmt, args);
     va_end(args);
 
-    int err_cb_ret = error_context.error_cb(msgbuf->data, filename, line);
+    int err_cb_ret = error_context.error_cb(msgbuf->data, filename, line, pos);
     buffer_free(msgbuf);
 
     if (err_cb_ret != 0)
@@ -35,7 +35,7 @@ void generic_report_error(const char *filename, int line, char *fmt, ...) {
   }
 }
 
-void generic_report_warning(const char *filename, int line, char *fmt, ...) {
+void generic_report_warning(const char *filename, int line, int pos, char *fmt, ...) {
   if (error_context.warning_cb) {
     va_list args;
     buffer *msgbuf = buffer_init();
@@ -44,7 +44,7 @@ void generic_report_warning(const char *filename, int line, char *fmt, ...) {
     buffer_append_va(msgbuf, fmt, args);
     va_end(args);
 
-    error_context.warning_cb(msgbuf->data, filename, line);
+    error_context.warning_cb(msgbuf->data, filename, line, pos);
     buffer_free(msgbuf);
   }
 }

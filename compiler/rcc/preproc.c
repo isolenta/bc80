@@ -121,6 +121,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
   while (token) {
     // remember line num for the first token of directive (may be advanced during further processing)
     int line_num = sstate.line_num;
+    int pos_num = sstate.pos_num;
 
     if (token != '\n' && dest->len > 0 && dest->data[dest->len - 1] == '\n') {
       check_alter_position(dest, &sstate.skipped, filename, line_num);
@@ -139,14 +140,14 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
         // consume whitespace between tokens
         next_token = rc_lex(scanner, ctx);
         if (next_token != WHITESPACE)
-          generic_report_error(filename, line_num, "#%s: expected whitespace",
+          generic_report_error(filename, line_num, pos_num, "#%s: expected whitespace",
             ((token == PP_IFDEF) ? "ifdef" : "ifndef"));
 
         int cond_state = COND_STATE_TRUE;
 
         next_token = rc_lex(scanner, ctx);
         if (next_token != ID)
-          generic_report_error(filename, line_num, "#ifdef: expected constant name");
+          generic_report_error(filename, line_num, pos_num, "#ifdef: expected constant name");
 
         if (dynarray_length(ctx->pp_cond_stack) > 0) {
           // if there is a parent block and it's condition is negative,
@@ -177,7 +178,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
 
       case PP_ELSE: {
         if (dynarray_length(ctx->pp_cond_stack) == 0)
-          generic_report_error(filename, line_num, "#else without #ifdef/#ifndef found");
+          generic_report_error(filename, line_num, pos_num, "#else without #ifdef/#ifndef found");
 
         dynarray_cell *top_cond_cell = dynarray_last_cell(ctx->pp_cond_stack);
 
@@ -193,7 +194,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
 
       case PP_ENDIF: {
         if (dynarray_length(ctx->pp_cond_stack) == 0)
-          generic_report_error(filename, line_num, "#endif without #ifdef/#ifndef found");
+          generic_report_error(filename, line_num, pos_num, "#endif without #ifdef/#ifndef found");
 
         // #endif removes current conditional state, even if it in 'disabled' state
         ctx->pp_cond_stack->length--;
@@ -236,21 +237,21 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
         // consume whitespace between tokens
         next_token = rc_lex(scanner, ctx);
         if (next_token != WHITESPACE)
-          generic_report_error(filename, line_num, "#include: expected whitespace");
+          generic_report_error(filename, line_num, pos_num, "#include: expected whitespace");
 
         next_token = rc_lex(scanner, ctx);
         if (next_token != STRING_LITERAL)
-          generic_report_error(filename, line_num, "#include:  expected string literal");
+          generic_report_error(filename, line_num, pos_num, "#include:  expected string literal");
 
         char *inc_filename = sstate.string_literal;
         if (!inc_filename)
-          generic_report_error(filename, line_num, "#include: unexpected string literal %s", get_current_token(scanner));
+          generic_report_error(filename, line_num, pos_num, "#include: unexpected string literal %s", get_current_token(scanner));
 
         sstate.skipped = true;
 
         char *path = fs_abs_path(inc_filename, ctx->includeopts);
         if (path == NULL)
-          generic_report_error(filename, line_num, "file not found: %s", inc_filename);
+          generic_report_error(filename, line_num, pos_num, "file not found: %s", inc_filename);
 
         void *already_processed = hashmap_search(ctx->pp_files, path, HASHMAP_FIND, NULL);
         if (!already_processed) {
@@ -273,12 +274,12 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
         // consume whitespace between tokens
         next_token = rc_lex(scanner, ctx);
         if (next_token != WHITESPACE)
-          generic_report_error(filename, line_num, "#define: expected whitespace");
+          generic_report_error(filename, line_num, pos_num, "#define: expected whitespace");
 
         next_token = rc_lex(scanner, ctx);
 
         if (next_token != ID)
-          generic_report_error(filename, line_num, "#define: expected constant name");
+          generic_report_error(filename, line_num, pos_num, "#define: expected constant name");
 
         key = get_current_token(scanner);
 
@@ -288,7 +289,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
         } else {
           // #define with value: must be whitespace
           if (next_token != WHITESPACE)
-            generic_report_error(filename, line_num, "#define: expected whitespace");
+            generic_report_error(filename, line_num, pos_num, "#define: expected whitespace");
 
           // get all tokens until newline
           buffer *value_buf = buffer_init();
@@ -331,13 +332,13 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
         // consume whitespace between tokens
         next_token = rc_lex(scanner, ctx);
         if (next_token != WHITESPACE)
-          generic_report_error(filename, line_num, "#error: expected whitespace");
+          generic_report_error(filename, line_num, pos_num, "#error: expected whitespace");
 
         next_token = rc_lex(scanner, ctx);
         if (next_token != STRING_LITERAL)
-          generic_report_error(filename, line_num, "#error: expected string literal");
+          generic_report_error(filename, line_num, pos_num, "#error: expected string literal");
 
-        generic_report_error(filename, line_num, "%s", sstate.string_literal);
+        generic_report_error(filename, line_num, 0, "%s", sstate.string_literal);
         break;
       }
 
@@ -347,13 +348,13 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
         // consume whitespace between tokens
         next_token = rc_lex(scanner, ctx);
         if (next_token != WHITESPACE)
-          generic_report_error(filename, line_num, "#warning: expected whitespace");
+          generic_report_error(filename, line_num, pos_num, "#warning: expected whitespace");
 
         next_token = rc_lex(scanner, ctx);
         if (next_token != STRING_LITERAL)
-          generic_report_error(filename, line_num, "#warning: expected string literal");
+          generic_report_error(filename, line_num, pos_num, "#warning: expected string literal");
 
-        generic_report_warning(filename, line_num, "%s", sstate.string_literal);
+        generic_report_warning(filename, line_num, 0, "%s", sstate.string_literal);
 
         break;
       }
@@ -425,7 +426,7 @@ extern int get_actual_position(rcc_ctx_t *ctx, int scanner_pos, char **filename)
 
   char *p = ctx->pp_output_str;
   while (*p) {
-    if (line_num == scanner_pos - 1) {
+    if (line_num == scanner_pos) {
       found_scanner_pos = true;
       break;
     }
@@ -447,15 +448,17 @@ extern int get_actual_position(rcc_ctx_t *ctx, int scanner_pos, char **filename)
   int distance = 0;
 
   // rewind until #line found
+  const char *pos_pattern = "#line ";
+  int len = strlen(pos_pattern);
   while(p > ctx->pp_output_str) {
     p--;
 
     if (*p == '\n')
       distance++;
 
-    const char *pos_pattern = "\n#line ";
-    int len = strlen(pos_pattern);
-    if (memcmp(p, pos_pattern, len) == 0) {
+    if ((memcmp(p, pos_pattern, len) == 0) &&
+          (p == ctx->pp_output_str || *(p - 1) == '\n'))
+    {
       p += len;
       break;
     }

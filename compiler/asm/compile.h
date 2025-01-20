@@ -56,13 +56,13 @@ typedef struct {
 
 #define report_error(ctx, fmt, ...) \
   do { \
-    generic_report_error((ctx)->node->fn, (ctx)->verbose_error ? (ctx)->node->line : 0, fmt, ## __VA_ARGS__); \
+    generic_report_error((ctx)->node->fn, (ctx)->verbose_error ? (ctx)->node->line : 0, 0, fmt, ## __VA_ARGS__); \
   } while (0)
 
 
 #define report_warning(ctx, fmt, ...) \
   do { \
-    generic_report_warning((ctx)->node->fn, (ctx)->verbose_error ? (ctx)->node->line : 0, fmt, ## __VA_ARGS__); \
+    generic_report_warning((ctx)->node->fn, (ctx)->verbose_error ? (ctx)->node->line : 0, 0, fmt, ## __VA_ARGS__); \
   } while (0)
 
 extern parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar);

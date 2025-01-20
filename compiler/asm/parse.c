@@ -470,7 +470,7 @@ int parse_integer(struct libasm_as_desc_t *desc, char *text, int len, int base, 
 
   result = strtol(tmp, &endptr, base);
   if (endptr == tmp) {
-    generic_report_error(NULL, 0, "error parse decimal integer: %s", text);
+    generic_report_error(NULL, 0, 0, "error parse decimal integer: %s", text);
   }
 
   return result;
@@ -493,7 +493,7 @@ int parse_binary(struct libasm_as_desc_t *desc, char *text, int len) {
 
   result = strtol(tmp, &endptr, 2);
   if (endptr == tmp) {
-    generic_report_error(NULL, 0, "error parse binary integer: %s", text);
+    generic_report_error(NULL, 0, 0, "error parse binary integer: %s", text);
   }
 
   return result;
@@ -520,14 +520,14 @@ int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *fi
 
   path = fs_abs_path(filename, g_includeopts);
   if (path == NULL) {
-    generic_report_error(NULL, line, "file not found: %s", filename);
+    generic_report_error(NULL, line, 0, "file not found: %s", filename);
     goto out;
   }
 
   sz = fs_file_size(path);
   fp = fopen(path, "r");
   if (!fp) {
-    generic_report_error(NULL, line, "%s: %s", path, strerror(errno));
+    generic_report_error(NULL, line, 0, "%s: %s", path, strerror(errno));
     goto out;
   }
 
@@ -535,7 +535,7 @@ int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *fi
 
   sz = fread(source, sz, 1, fp);
   if (sz != 1) {
-    generic_report_error(NULL, line, "%s: %s", path, strerror(errno));
+    generic_report_error(NULL, line, 0, "%s: %s", path, strerror(errno));
     goto out;
   }
 

@@ -18,8 +18,8 @@
     void rc_error(yyscan_t scanner, rcc_ctx_t *ctx, const char *msg) {
       char *filename = ctx->in_filename;
       int adjusted_line = ctx->scanner_state.line_num + ctx->parser_state.last_pp_line - ctx->parser_state.last_actual_line;
-      int act_pos = get_actual_position(ctx, ctx->scanner_state.line_num, &filename);
-      generic_report_error(basename(filename), act_pos, "%s", msg);
+      int actual_line = get_actual_position(ctx, ctx->scanner_state.line_num, &filename);
+      generic_report_error(basename(filename), actual_line, ctx->scanner_state.pos_num, "%s", msg);
     }
 
     #define RULE_UNARY_EXPRESSION(target, _kind, op, _line) do {            \
