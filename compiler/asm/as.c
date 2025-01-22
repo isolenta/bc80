@@ -9,6 +9,7 @@
 #include "asm/libasm.h"
 #include "asm/snafmt.h"
 #include "common/dynarray.h"
+#include "common/error.h"
 #include "common/filesystem.h"
 #include "common/hashmap.h"
 #include "common/mmgr.h"
@@ -34,25 +35,27 @@ static void print_usage(char *cmd) {
   );
 }
 
-static int error_cb(const char *message, const char *filename, int line, int pos) {
+static int error_cb(int flags, const char *message, const char *filename, int line, int pos) {
   (void)pos;
-  fprintf(stderr, "\x1b[31m");
-  if (line > 0)
-    fprintf(stderr, "Error in %s:%d: ", filename, line);
-  else
-    fprintf(stderr, "Error: ");
-  fprintf(stderr, "%s\x1b[0m\n", message);
+  fprintf(stderr, "\x1b[31mError");
+  if (flags & ERROR_OUT_LOC) {
+    fprintf(stderr, " in %s", filename);
+    if (flags & ERROR_OUT_LINE)
+      fprintf(stderr, ":%d", line);
+  }
+  fprintf(stderr, ": %s\x1b[0m\n", message);
   return 1;
 }
 
-static void warning_cb(const char *message, const char *filename, int line, int pos) {
+static void warning_cb(int flags, const char *message, const char *filename, int line, int pos) {
   (void)pos;
-  fprintf(stderr, "\x1b[33m");
-  if (line > 0)
-    fprintf(stderr, "Warning in %s:%d: ", filename, line);
-  else
-    fprintf(stderr, "Warning: ");
-  fprintf(stderr, "%s\x1b[0m\n", message);
+  fprintf(stderr, "\x1b[33mWarning");
+  if (flags & ERROR_OUT_LOC) {
+    fprintf(stderr, " in %s", filename);
+    if (flags & ERROR_OUT_LINE)
+      fprintf(stderr, ":%d", line);
+  }
+  fprintf(stderr, ": %s\x1b[0m\n", message);
 }
 
 static jmp_buf error_env;

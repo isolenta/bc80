@@ -82,20 +82,20 @@ char *read_file(char *filename) {
   FILE *fin = NULL;
 
   if (!fs_file_exists(filename)) {
-    generic_report_error(NULL, 0, 0, "file is not exist: %s", filename);
+    report_error_noloc("file is not exist: %s", filename);
   }
 
   filesize = fs_file_size(filename);
   fin = fopen(filename, "r");
   if (!fin)
-    generic_report_error(NULL, 0, 0, "unable to open file %s", filename);
+    report_error_noloc("unable to open file %s", filename);
 
   source = (char *)xmalloc(filesize + 2);
 
   sret = fread(source, filesize, 1, fin);
   if (sret != 1) {
     fclose(fin);
-    generic_report_error(NULL, 0, 0, "file reading error %s", filename);
+    report_error_noloc("file reading error %s", filename);
   }
 
   source[filesize] = '\0';
@@ -109,14 +109,14 @@ char *read_file(char *filename) {
 size_t write_file(char *data, uint32_t data_size, char *filename) {
   FILE *f = fopen(filename, "wb");
   if (!f) {
-    generic_report_error(NULL, 0, 0, "unable to open file %s", filename);
+    report_error_noloc("unable to open file %s", filename);
     goto out;
   }
 
   if (data_size > 0) {
     ssize_t sret = fwrite(data, data_size, 1, f);
     if (sret != 1) {
-      generic_report_error(NULL, 0, 0, "file writing error %s", filename);
+      report_error_noloc("file writing error %s", filename);
     }
   }
 

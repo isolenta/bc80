@@ -22,8 +22,10 @@
     yyextra->pos_num = 1;       \
   } while (0)
 
-  #define ADVANCE_POS do {            \
-    yyextra->pos_num += yyleng;       \
+  #define ADVANCE_POS do {                                        \
+    yyextra->pos_num += yyleng;                                   \
+    yyextra->rcc_ctx->current_position.line = yyextra->line_num;  \
+    yyextra->rcc_ctx->current_position.pos = yyextra->pos_num;    \
   } while (0)
 
   #define ESCAPED_INT_LITERAL(_ival) do {  \

@@ -145,6 +145,7 @@ struct ParseNode {
   LIST *childs;
   ParseNode *parent;
   int line;
+  int pos;
   char *file;
 };
 
@@ -484,6 +485,8 @@ extern ParseNode *rc_parse_node_macro_holder;
   memset(rc_parse_node_macro_holder->childs, 0, sizeof(LIST)),                 \
   rc_parse_node_macro_holder->childs->hdr.type = T_LIST,                       \
   rc_parse_node_macro_holder->line = first_line,                               \
+  rc_parse_node_macro_holder->pos = ctx->current_position.pos,                 \
+  rc_parse_node_macro_holder->file = xstrdup(ctx->current_position.filename),  \
   (t *)rc_parse_node_macro_holder                                              \
 )
 
@@ -496,6 +499,8 @@ extern ParseNode *rc_parse_node_macro_holder;
   memset(rc_parse_node_macro_holder->childs, 0, sizeof(LIST)),                 \
   rc_parse_node_macro_holder->childs->hdr.type = T_LIST,                       \
   rc_parse_node_macro_holder->line = first_line,                               \
+  rc_parse_node_macro_holder->pos = ctx->current_position.pos,                 \
+  rc_parse_node_macro_holder->file = xstrdup(ctx->current_position.filename),  \
   rc_parse_node_macro_holder                                                   \
 )
 

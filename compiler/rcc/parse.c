@@ -34,7 +34,7 @@ static void parse_node_dump(buffer *dest, int indent, const char *prefix, ParseN
     return;
   }
 
-  buffer_append(dest, "[%d] %s ", node->line, parse_node_type_str(node->type));
+  buffer_append(dest, "[%d:%d] %s ", node->line, node->pos, parse_node_type_str(node->type));
 
   switch (node->type) {
     case T_ASSERT_DECL: {
@@ -371,6 +371,9 @@ void *do_parse(rcc_ctx_t *ctx, char *source) {
   ctx->parse_tree_top = CreatePrimitiveParseNode(UNIT, 0);
   ctx->scanner_state.line_num = 1;
   ctx->scanner_state.scan_standalone = false;
+  ctx->scanner_state.rcc_ctx = ctx;
+
+  ctx->current_position.filename = ctx->in_filename;
 
   rc_lex_init(&scanner);
   rc_set_extra(&ctx->scanner_state, scanner);
@@ -418,7 +421,7 @@ int parse_int(const char *str, int len, IntegerBase base)
 
   result = strtol(tmp, &endptr, basenum);
   if (endptr == tmp) {
-    generic_report_error(NULL, 0, 0, "error parse decimal integer: %s", str);
+    report_error_noloc("error parse decimal integer: %s", str);
   }
 
   return result;

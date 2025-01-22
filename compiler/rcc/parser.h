@@ -8,7 +8,10 @@ typedef enum IntegerBase
   DEC
 } IntegerBase;
 
+typedef struct rcc_ctx_t rcc_ctx_t;
+
 struct scanner_state {
+  rcc_ctx_t *rcc_ctx;
   bool skipped;
   int line_num;
   int pos_num;

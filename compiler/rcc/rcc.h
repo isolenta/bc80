@@ -8,6 +8,12 @@ typedef struct hashmap hashmap;
 typedef struct dynarray dynarray;
 typedef struct ParseNode ParseNode;
 
+typedef struct position_t {
+  char *filename;
+  int line;
+  int pos;
+} position_t;
+
 typedef struct rcc_ctx_t {
   hashmap *constants;
   dynarray *includeopts;
@@ -18,22 +24,22 @@ typedef struct rcc_ctx_t {
   char *pp_output_str;
   struct scanner_state scanner_state;
   struct parser_state parser_state;
+  position_t current_position;
 } rcc_ctx_t;
 
-#define ERROR_VERBOSE (1 << 0)
+#define report_error(ctx, fmt, ...) \
+  generic_report_error( (ERROR_OUT_LOC | ERROR_OUT_LINE | ERROR_OUT_POS), \
+                        (ctx)->current_position.filename, \
+                        (ctx)->current_position.line, \
+                        (ctx)->current_position.pos, \
+                        fmt, ## __VA_ARGS__);
 
-#define report_error(ctx, flags, fmt, ...) \
-  do { \
-    if ((ctx)->error_cb) \
-      generic_report_error((ctx)->error_cb, (ctx)->error_jmp_env, (ctx)->in_filename, (flags & ERROR_VERBOSE) ? (ctx)->node->line : 0, fmt, ## __VA_ARGS__); \
-  } while(0)
-
-
-#define report_warning(ctx, flags, fmt, ...) \
-  do { \
-    if ((ctx)->warning_cb) \
-      generic_report_warning((ctx)->warning_cb, (ctx)->in_filename, (flags & ERROR_VERBOSE) ? (ctx)->node->line : 0, fmt, ## __VA_ARGS__); \
-  } while (0)
+#define report_warning(ctx, fmt, ...) \
+  generic_report_warning( (ERROR_OUT_LOC | ERROR_OUT_LINE | ERROR_OUT_POS), \
+                        (ctx)->current_position.filename, \
+                        (ctx)->current_position.line, \
+                        (ctx)->current_position.pos, \
+                        fmt, ## __VA_ARGS__);
 
 typedef void* yyscan_t;
 
