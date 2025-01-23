@@ -23,9 +23,9 @@
   } while (0)
 
   #define ADVANCE_POS do {                                        \
+    yyextra->rcc_ctx->current_position.pos = yyextra->pos_num;    \
     yyextra->pos_num += yyleng;                                   \
     yyextra->rcc_ctx->current_position.line = yyextra->line_num;  \
-    yyextra->rcc_ctx->current_position.pos = yyextra->pos_num;    \
   } while (0)
 
   #define ESCAPED_INT_LITERAL(_ival) do {  \
@@ -117,7 +117,6 @@ WHITESPACE                [ \t\v\f]
 
   rc_lval.strval = tmp;
   ADVANCE_POS;
-
   return ID;
 }
 
@@ -242,11 +241,11 @@ WHITESPACE                [ \t\v\f]
 "?"                       { ADVANCE_POS; return '?'; }
 
 {WHITESPACE}+             {
+  ADVANCE_POS;
   if (yyextra->scan_standalone) {
     yyextra->whitespace_str = xmalloc(yyleng + 1);
     memcpy(yyextra->whitespace_str, yytext, yyleng);
     yyextra->whitespace_str[yyleng] = '\0';
-    ADVANCE_POS;
     return WHITESPACE;
   }
 }

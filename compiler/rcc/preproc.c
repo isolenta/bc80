@@ -112,6 +112,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
   ctx->current_position.filename = (char *)filename;
   sstate.rcc_ctx = ctx;
   sstate.line_num = 1;
+  sstate.pos_num = 1;
   sstate.skipped = false;
   sstate.scan_standalone = true;
 
