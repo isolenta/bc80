@@ -60,3 +60,4 @@ extern bool is_operator(const char *id);
 extern bool is_identifier(const char *id);
 extern char *get_current_token(yyscan_t scanner);
 extern int get_actual_position(rcc_ctx_t *ctx, int scanner_pos, char **filename);
+extern char *get_token_at(char *source, int line, int pos, int token_len);

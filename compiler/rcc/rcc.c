@@ -1,4 +1,5 @@
 #include <getopt.h>
+#include <libgen.h>
 #include <setjmp.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -17,28 +18,28 @@
 static jmp_buf rcc_env;
 
 static int error_cb(int flags, const char *message, const char *filename, int line, int pos) {
-  fprintf(stderr, "\x1b[31mError");
   if (flags & ERROR_OUT_LOC) {
-    fprintf(stderr, " in %s", filename);
+    fprintf(stderr, "\x1b[97m%s", basename((char *)filename));
     if (flags & ERROR_OUT_LINE)
       fprintf(stderr, ":%d", line);
     if (flags & ERROR_OUT_POS)
       fprintf(stderr, ":%d", pos);
+    fprintf(stderr, ":\x1b[0m");
   }
-  fprintf(stderr, ": %s\x1b[0m\n", message);
+  fprintf(stderr, " \x1b[91merror:\x1b[0m \x1b[97m%s\x1b[0m\n", message);
   return 1;
 }
 
 static void warning_cb(int flags, const char *message, const char *filename, int line, int pos) {
-  fprintf(stderr, "\x1b[33mWarning");
   if (flags & ERROR_OUT_LOC) {
-    fprintf(stderr, " in %s", filename);
+    fprintf(stderr, "\x1b[97m%s", basename((char *)filename));
     if (flags & ERROR_OUT_LINE)
       fprintf(stderr, ":%d", line);
     if (flags & ERROR_OUT_POS)
       fprintf(stderr, ":%d", pos);
+    fprintf(stderr, ":\x1b[0m");
   }
-  fprintf(stderr, ": %s\x1b[0m\n", message);
+  fprintf(stderr, " \x1b[95mwarning:\x1b[0m \x1b[97m%s\x1b[0m\n", message);
 }
 
 static void print_usage(char *cmd) {

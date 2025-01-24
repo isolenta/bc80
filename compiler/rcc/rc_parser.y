@@ -6,6 +6,7 @@
     #include <stdio.h>
     #include <libgen.h>
 
+    #include "common/buffer.h"
     #include "common/mmgr.h"
     #include "rcc/parse_nodes.h"
     #include "rcc/rcc.h"
@@ -19,6 +20,8 @@
       int adjusted_line = ctx->scanner_state.line_num + ctx->parser_state.last_pp_line - ctx->parser_state.last_actual_line;
       ctx->current_position.line = get_actual_position(ctx, ctx->scanner_state.line_num, &ctx->current_position.filename);
       ctx->current_position.pos = ctx->scanner_state.pos_num;
+      yylloc.first_line = ctx->current_position.line;
+      yylloc.first_column = ctx->scanner_state.pos_num;
       report_error(ctx, "%s", msg);
     }
 
@@ -56,7 +59,7 @@
 }
 
 %locations
-%define parse.error verbose
+%define parse.error custom
 %define api.prefix {rc_}
 
 %token  <ival> INT_LITERAL
@@ -846,3 +849,83 @@ function_definition
   ;
 
 %%
+
+static const char *yysymbol_name_human(yysymbol_kind_t yysymbol) {
+  switch (yysymbol) {
+    case YYSYMBOL_ID:
+      return "identifier";
+    case YYSYMBOL_INT_LITERAL:
+      return "integer";
+    case YYSYMBOL_STRING_LITERAL:
+      return "string literal";
+    case YYSYMBOL_ASSERT:
+    case YYSYMBOL_SIZEOF:
+    case YYSYMBOL_STATIC:
+    case YYSYMBOL_INLINE:
+    case YYSYMBOL_VOLATILE:
+    case YYSYMBOL_INT8:
+    case YYSYMBOL_UINT8:
+    case YYSYMBOL_INT16:
+    case YYSYMBOL_UINT16:
+    case YYSYMBOL_VOID:
+    case YYSYMBOL_STRUCT:
+    case YYSYMBOL_FALSE:
+    case YYSYMBOL_TRUE:
+    case YYSYMBOL_BOOL:
+    case YYSYMBOL_CASE:
+    case YYSYMBOL_DEFAULT:
+    case YYSYMBOL_IF:
+    case YYSYMBOL_ELSE:
+    case YYSYMBOL_SWITCH:
+    case YYSYMBOL_WHILE:
+    case YYSYMBOL_FOR:
+    case YYSYMBOL_DO:
+    case YYSYMBOL_GOTO:
+    case YYSYMBOL_CONTINUE:
+    case YYSYMBOL_BREAK:
+    case YYSYMBOL_RETURN:
+      return "keyword";
+    default:
+      return yysymbol_name(yysymbol);
+  }
+}
+
+static int yyreport_syntax_error(const yypcontext_t *errctx, void *scanner, rcc_ctx_t *ctx) {
+  buffer *errmsg = buffer_init();
+  int res = 0, num_expected;
+  enum { TOKENMAX = 5 };
+  yysymbol_kind_t expected[TOKENMAX];
+
+  num_expected = yypcontext_expected_tokens(errctx, expected, TOKENMAX);
+  if (num_expected < 0) {
+    res = num_expected;    // forward errors to yyparse
+  } else {
+    for (int i = 0; i < num_expected; ++i)
+      buffer_append(errmsg, "%s %s",
+               i == 0 ? "expected" : " or", yysymbol_name_human(expected[i]));
+  }
+
+  yysymbol_kind_t lookahead = yypcontext_token(errctx);
+  if (lookahead != YYSYMBOL_YYEMPTY) {
+    // adjust line number according #line directives
+    ctx->current_position.line = get_actual_position(ctx, ctx->scanner_state.line_num, &ctx->current_position.filename);
+
+    if (lookahead == YYSYMBOL_YYEOF) {
+      buffer_append(errmsg, " until the end of file");
+    } else {
+      YYLTYPE *loc = yypcontext_location(errctx);
+
+      char *err_token = get_token_at(ctx->scanner_state.source_ptr, loc->first_line, loc->first_column, loc->last_column - loc->first_column + 1);
+      if (num_expected > 0)
+        buffer_append(errmsg, " before '%s'", err_token);
+      else
+        buffer_append(errmsg, "unexpected %s '%s'", yysymbol_name_human(lookahead), err_token);
+    }
+  }
+
+  char *errstr = buffer_dup(errmsg);
+  buffer_free(errmsg);
+
+  report_error(ctx, errstr);
+  return res;
+}

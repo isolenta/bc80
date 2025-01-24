@@ -372,6 +372,7 @@ void *do_parse(rcc_ctx_t *ctx, char *source) {
   ctx->scanner_state.line_num = 1;
   ctx->scanner_state.scan_standalone = false;
   ctx->scanner_state.rcc_ctx = ctx;
+  ctx->scanner_state.source_ptr = source;
 
   ctx->current_position.filename = ctx->in_filename;
 

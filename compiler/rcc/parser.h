@@ -20,6 +20,7 @@ struct scanner_state {
   int int_literal;
   int num_comment_lines;
   char *whitespace_str;
+  char *source_ptr;
 };
 
 struct parser_state {

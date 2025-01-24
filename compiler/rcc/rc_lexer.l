@@ -8,7 +8,10 @@
 
   #include "rc_parser.tab.h"
 
-  #define YY_USER_ACTION rc_lloc.first_line = rc_lloc.last_line = yylineno;
+  #define YY_USER_ACTION \
+    rc_lloc.first_line = rc_lloc.last_line = yyextra->line_num; \
+    rc_lloc.first_column = yyextra->pos_num; \
+    rc_lloc.last_column = rc_lloc.first_column + yyleng - 1;
 
   #undef YY_DECL
   #define YY_DECL int rc_lex (yyscan_t yyscanner, rcc_ctx_t *ctx)
