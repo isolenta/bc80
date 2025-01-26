@@ -2,7 +2,8 @@ include ../make.def
 
 all: rcc
 
-RCC_OBJS := rcc.o preproc.o parse.o compile.o rc_lexer.yy.o rc_parser.tab.o ast.o
+RCC_OBJS := rcc.o preproc.o parse.o codegen.o rc_lexer.yy.o rc_parser.tab.o \
+						semantics.o semantics_global.o debug_dump.o
 RCC_OBJS := $(addprefix $(OBJDIR)/, $(RCC_OBJS))
 RCC_DEPS := $(RCC_OBJS:%.o=%.d)
 

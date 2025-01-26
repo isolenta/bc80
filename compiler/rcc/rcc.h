@@ -6,7 +6,7 @@
 
 typedef struct hashmap hashmap;
 typedef struct dynarray dynarray;
-typedef struct ParseNode ParseNode;
+typedef struct Node Node;
 
 typedef struct position_t {
   char *filename;
@@ -20,11 +20,15 @@ typedef struct rcc_ctx_t {
   char *in_filename;
   hashmap *pp_files;
   dynarray *pp_cond_stack;
-  ParseNode *parse_tree_top;
+  Node *parse_tree_top;
   char *pp_output_str;
   struct scanner_state scanner_state;
   struct parser_state parser_state;
   position_t current_position;
+
+  hashmap *global_symtab;
+  hashmap *func_decls;
+  hashmap *type_decls;
 } rcc_ctx_t;
 
 #define report_error(ctx, fmt, ...) \
@@ -49,11 +53,11 @@ extern void *do_parse(rcc_ctx_t *ctx, char *source);
 extern char *dump_parse_tree(void *parse_tree);
 extern void parse_tree_free(void *parse_tree);
 
-extern void *do_ast(rcc_ctx_t *ctx, void *parse_tree);
-extern char *dump_ast(void *ast);
-extern void ast_free(void *ast);
+extern void do_semantics(rcc_ctx_t *ctx, void *parse_tree);
+extern char *dump_semantics(rcc_ctx_t *ctx);
+extern void semantics_free(rcc_ctx_t *ctx);
 
-extern char *do_compile(rcc_ctx_t *ctx, void *ast);
+extern char *do_codegen(rcc_ctx_t *ctx);
 
 extern bool is_keyword(const char *id);
 extern bool is_operator(const char *id);

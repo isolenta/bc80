@@ -51,14 +51,14 @@ static void print_usage(char *cmd) {
          "  -Dkey[=value]     define symbol for preprocessor\n"
          "  -E                only preprocessor stage\n"
          "  -P                only preprocessor and parse tree stages\n"
-         "  -A                only preprocessor, parse tree, AST stages\n"
+         "  -A                only preprocessor, parse tree, semantics stages\n"
          "  -e                produce preprocessor output\n"
          "  -p                produce parse tree output\n"
-         "  -a                produce AST output\n"
+         "  -a                produce semantics output\n"
          "  -s                produce assembler output\n"
          "  --pp-filename <filename>   if preprocessor output produced, use specified filename for result\n"
          "  --pt-filename <filename>   if parse tree output produced, use specified filename for result\n"
-         "  --ast-filename <filename>  if AST output produced, use specified filename for result\n"
+         "  --sem-filename <filename>  if semantics output produced, use specified filename for result\n"
          "  --asm-filename <filename>  if assembler output produced, use specified filename for result\n"
          "  --obj-filename <filename>  use specified filename for object file produced\n"
          ,
@@ -70,7 +70,7 @@ enum {
   STAGE_NONE = 0,
   STAGE_PREPROC,
   STAGE_PARSETREE,
-  STAGE_AST,
+  STAGE_SEMANTICS,
   STAGE_CODEGEN,
   STAGE_ASM,
   STAGE_LAST,
@@ -83,12 +83,12 @@ int main(int argc, char **argv) {
   char *source = NULL;
   char *pp_outfile = NULL;
   char *pt_outfile = NULL;
-  char *ast_outfile = NULL;
+  char *sem_outfile = NULL;
   char *asm_outfile = NULL;
   char *obj_outfile = NULL;
   bool out_pp = false;
   bool out_pt = false;
-  bool out_ast = false;
+  bool out_sem = false;
   bool out_asm = false;
   int last_stage = STAGE_LAST;
   rcc_ctx_t context;
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
   const struct option long_options[] = {
     {"pp-filename",          required_argument, NULL, 1},
     {"pt-filename",          required_argument, NULL, 2},
-    {"ast-filename",          required_argument, NULL, 3},
+    {"sem-filename",         required_argument, NULL, 3},
     {"asm-filename",         required_argument, NULL, 4},
     {"obj-filename",         required_argument, NULL, 5},
     {0, 0, 0, 0}
@@ -150,6 +150,10 @@ int main(int argc, char **argv) {
         out_pt = true;
         break;
 
+      case 'a':
+        out_sem = true;
+        break;
+
       case 's':
         out_asm = true;
         break;
@@ -163,7 +167,7 @@ int main(int argc, char **argv) {
         break;
 
       case 3:
-        ast_outfile = xstrdup(optarg);
+        sem_outfile = xstrdup(optarg);
         break;
 
       case 4:
@@ -187,7 +191,7 @@ int main(int argc, char **argv) {
         break;
 
       case 'A':
-        last_stage = STAGE_AST;
+        last_stage = STAGE_SEMANTICS;
         break;
 
       case '?':
@@ -211,8 +215,8 @@ int main(int argc, char **argv) {
     pp_outfile = fs_replace_suffix(infile, "pp");
   if (out_pt && pt_outfile == NULL)
     pt_outfile = fs_replace_suffix(infile, "pt");
-  if (out_ast && ast_outfile == NULL)
-    ast_outfile = fs_replace_suffix(infile, "ast");
+  if (out_sem && sem_outfile == NULL)
+    sem_outfile = fs_replace_suffix(infile, "sem");
   if (out_asm && asm_outfile == NULL)
     asm_outfile = fs_replace_suffix(infile, "asm");
   if (obj_outfile == NULL)
@@ -224,7 +228,7 @@ int main(int argc, char **argv) {
 
   char *preproc_output = NULL;
   void *pt_output = NULL;
-  void *ast_output = NULL;
+  void *sem_output = NULL;
   char *asm_output = NULL;
 
   if (last_stage == STAGE_NONE)
@@ -252,19 +256,19 @@ int main(int argc, char **argv) {
   if (last_stage == STAGE_PARSETREE)
     goto out;
 
-  // stage 3: produce AST from parse tree
-  ast_output = do_ast(&context, NULL);
-  if (out_ast && ast_output) {
-    char *ast_str = dump_ast(ast_output);
-    write_file(ast_str, strlen(ast_str), ast_outfile);
-    xfree(ast_str);
+  // stage 3: semantics analysis based on parse tree
+  do_semantics(&context, pt_output);
+  if (out_sem) {
+    char *sem_str = dump_semantics(&context);
+    write_file(sem_str, strlen(sem_str), sem_outfile);
+    xfree(sem_str);
   }
 
-  if (last_stage == STAGE_AST)
+  if (last_stage == STAGE_SEMANTICS)
     goto out;
 
-  // stage 4: produce assembler from AST
-  asm_output = do_compile(&context, ast_output);
+  // stage 4: produce assembler from semantics analysis artifacts
+  asm_output = do_codegen(&context);
   if (out_asm && asm_output) {
     write_file(asm_output, strlen(asm_output), asm_outfile);
   }
@@ -297,8 +301,8 @@ out:
   if (pt_output)
     parse_tree_free(pt_output);
 
-  if (ast_output)
-    ast_free(ast_output);
+  if (sem_output)
+    semantics_free(&context);
 
   if (asm_output)
     xfree(asm_output);

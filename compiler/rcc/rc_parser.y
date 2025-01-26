@@ -28,23 +28,23 @@
     #define RULE_UNARY_EXPRESSION(target, _kind, op, _line) do {            \
       EXPRESSION *expr = (EXPRESSION *)CreateParseNode(EXPRESSION, _line);  \
       expr->kind = _kind;                                                   \
-      AddChild((ParseNode *)expr, op);                                      \
-      target = (ParseNode *)expr;                                           \
+      AddChild((Node *)expr, op);                                           \
+      target = (Node *)expr;                                                \
     } while(0)
 
     #define RULE_BINARY_EXPRESSION(target, _kind, op1, op2, _line) do {     \
       EXPRESSION *expr = (EXPRESSION *)CreateParseNode(EXPRESSION, _line);  \
       expr->kind = _kind;                                                   \
-      AddChild((ParseNode *)expr, op1);                                     \
-      AddChild((ParseNode *)expr, op2);                                     \
-      target = (ParseNode *)expr;                                           \
+      AddChild((Node *)expr, op1);                                     \
+      AddChild((Node *)expr, op2);                                     \
+      target = (Node *)expr;                                           \
     } while(0)
 
     #define RULE_SPECIFIER(target, _kind, _line) do {       \
       SPECIFIER *node = CreateParseNode(SPECIFIER, _line);  \
       node->kind = _kind;                                   \
       node->name = NULL;                                    \
-      target = (ParseNode *)node;                           \
+      target = (Node *)node;                           \
     } while(0)
 %}
 
@@ -54,7 +54,7 @@
 %union {
   char *strval;
   int ival;
-  ParseNode *node;
+  Node *node;
   ExpressionKind expr_kind;
 }
 
@@ -64,11 +64,11 @@
 
 %token  <ival> INT_LITERAL
 %token  <strval> STRING_LITERAL ID
-%token  ASSERT SIZEOF END_OF_COMMENT WHITESPACE BACKSLASH
+%token  STATIC_ASSERT SIZEOF END_OF_COMMENT WHITESPACE BACKSLASH
 %token  PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
 %token  AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
 %token  SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
-%token  XOR_ASSIGN OR_ASSIGN
+%token  XOR_ASSIGN OR_ASSIGN ALIGN SECTION
 
 %token  STATIC INLINE VOLATILE
 %token  INT8 UINT8 INT16 UINT16 VOID STRUCT BOOL FALSE TRUE
@@ -86,7 +86,7 @@
 %type <node> expression cast_expression init_declarator primary_expression constant_expression
 %type <node> statement labeled_statement compound_statement expression_statement
 %type <node> selection_statement iteration_statement jump_statement
-%type <node> declaration assert_declaration external_declaration position_declaration
+%type <node> declaration static_assert_declaration external_declaration position_declaration
 %type <node> designator designator_list initializer initializer_list
 %type <node> translation_unit block_item block_item_list
 %type <node> storage_class_specifier function_specifier type_specifier struct_specifier
@@ -112,21 +112,21 @@ constant
     LITERAL *node = CreateParseNode(LITERAL, @1.first_line);
     node->kind = LITINT;
     node->ival = $1;
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | FALSE
   {
     LITERAL *node = CreateParseNode(LITERAL, @1.first_line);
     node->kind = LITBOOL;
     node->bval = false;
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | TRUE
   {
     LITERAL *node = CreateParseNode(LITERAL, @1.first_line);
     node->kind = LITBOOL;
     node->bval = true;
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   ;
 
@@ -136,7 +136,7 @@ string
     LITERAL *node = CreateParseNode(LITERAL, @1.first_line);
     node->kind = LITSTR;
     node->strval = $1;
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   };
 
 identifier
@@ -144,7 +144,7 @@ identifier
   {
     IDENTIFIER *node = CreateParseNode(IDENTIFIER, @1.first_line);
     node->name = $1;
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   };
 
 postfix_expression
@@ -174,7 +174,7 @@ postfix_expression
 
 argument_expression_list
   : assignment_expression {
-    ParseNode *node = CreatePrimitiveParseNode(ARG_EXPR_LIST, @1.first_line);
+    Node *node = CreatePrimitiveParseNode(ARG_EXPR_LIST, @1.first_line);
     AddChild(node, $1);
     $$ = node;
   }
@@ -214,7 +214,7 @@ cast_expression
     CAST *node = CreateParseNode(CAST, @1.first_line);
     node->cast_to = $2;
     AddChild(node, $4);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   ;
 
@@ -335,7 +335,7 @@ assignment_operator
 
 expression
   : assignment_expression {
-    ParseNode *node = CreatePrimitiveParseNode(EXPR_LIST, @1.first_line);
+    Node *node = CreatePrimitiveParseNode(EXPR_LIST, @1.first_line);
     AddChild(node, $1);
     $$ = node;
   }
@@ -351,11 +351,10 @@ constant_expression
 declaration
   : declaration_specifiers ';' { $$ = $1; }
   | declaration_specifiers init_declarator_list ';' {
-    ParseNode *specifiers = $1;
-    AddChild(specifiers, $2);
-    $$ = specifiers;
+    AddChild($1, $2);
+    $$ = $1;
   }
-  | assert_declaration { $$ = $1; }
+  | static_assert_declaration { $$ = $1; }
   | position_declaration { $$ = $1; }
   ;
 
@@ -367,37 +366,37 @@ position_declaration
     ctx->parser_state.last_pp_line = $3;
     ctx->parser_state.last_actual_line = @1.first_line;
     ctx->current_position.filename = $2;
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   ;
 
 declaration_specifiers
   : storage_class_specifier declaration_specifiers {
     AddChild($1, $2);
+    $$ = $1;
   }
   | storage_class_specifier {
-    ParseNode *node = CreatePrimitiveParseNode(DECL_SPEC_LIST, @1.first_line);
-    AddChild(node, $1);
-    $$ = node;
+    $$ = $1;
   }
   | type_specifier declaration_specifiers {
     AddChild($1, $2);
     $$ = $1;
   }
-  | type_specifier { $$ = $1; }
+  | type_specifier {
+    $$ = $1;
+  }
   | function_specifier declaration_specifiers {
     AddChild($1, $2);
+    $$ = $1;
   }
   | function_specifier {
-    ParseNode *node = CreatePrimitiveParseNode(DECL_SPEC_LIST, @1.first_line);
-    AddChild(node, $1);
-    $$ = node;
+    $$ = $1;
   }
   ;
 
 init_declarator_list
   : init_declarator {
-    ParseNode *node = CreatePrimitiveParseNode(INIT_DECLARATOR_LIST, @1.first_line);
+    Node *node = CreatePrimitiveParseNode(INIT_DECLARATOR_LIST, @1.first_line);
     AddChild(node, $1);
     $$ = node;
   }
@@ -417,6 +416,16 @@ init_declarator
 storage_class_specifier
   : STATIC {
     RULE_SPECIFIER($$, SPEC_STATIC, @1.first_line);
+  }
+  | ALIGN '(' constant_expression ')' {
+    RULE_SPECIFIER($$, SPEC_ALIGN, @1.first_line);
+    SPECIFIER *spec = (SPECIFIER *)$$;
+    spec->arg = $3;
+  }
+  | SECTION '(' string ')' {
+    RULE_SPECIFIER($$, SPEC_SECTION, @1.first_line);
+    SPECIFIER *spec = (SPECIFIER *)$$;
+    spec->arg = $3;
   }
   ;
 
@@ -448,19 +457,19 @@ struct_specifier
     node->kind = SPEC_STRUCT;
     node->name = (IDENTIFIER *)$2;
     AddChild(node, $4);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | STRUCT identifier {
     SPECIFIER *node = CreateParseNode(SPECIFIER, @1.first_line);
     node->kind = SPEC_STRUCT;
     node->name = (IDENTIFIER *)$2;
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   ;
 
 struct_declaration_list
   : struct_declaration {
-    ParseNode *list = CreatePrimitiveParseNode(STRUCT_DECL_LIST, @1.first_line);
+    Node *list = CreatePrimitiveParseNode(STRUCT_DECL_LIST, @1.first_line);
     AddChild(list, $1);
     $$ = list;
   }
@@ -474,12 +483,12 @@ struct_declaration
     AddChild($1, $2);
     $$ = $1;
   }
-  | assert_declaration { $$ = $1; }
+  | static_assert_declaration { $$ = $1; }
   ;
 
 struct_declarator_list
   : struct_declarator {
-    ParseNode *list = CreatePrimitiveParseNode(STRUCT_DECLARATOR_LIST, @1.first_line);
+    Node *list = CreatePrimitiveParseNode(STRUCT_DECLARATOR_LIST, @1.first_line);
     AddChild(list, $1);
     $$ = list;
   }
@@ -500,7 +509,20 @@ function_specifier
 
 declarator
   : pointer direct_declarator {
-    AddChild($1, $2);
+    Node *deepest_pointer = $1;
+
+    while (1) {
+      if (dynarray_length(deepest_pointer->childs->list) > 0) {
+        Node *child = (Node *)dinitial(deepest_pointer->childs->list);
+        if (child->type == T_POINTER) {
+          deepest_pointer = child;
+          continue;
+        }
+      }
+      break;
+    }
+
+    AddChild(deepest_pointer, $2);
     $$ = $1;
   }
   | direct_declarator { $$ = $1; }
@@ -511,6 +533,9 @@ direct_declarator
   | '(' declarator ')' { $$ = $2; }
   | direct_declarator '[' assignment_expression ']' {
     RULE_BINARY_EXPRESSION($$, PFX_EXPR_ARRAY, $1, $3, @1.first_line);
+  }
+  | direct_declarator '[' ']' {
+    RULE_BINARY_EXPRESSION($$, PFX_EXPR_ARRAY, $1, NULL, @1.first_line);
   }
   | direct_declarator '(' parameter_list ')' {
     RULE_BINARY_EXPRESSION($$, PFX_EXPR_CALL, $1, $3, @1.first_line);
@@ -525,7 +550,7 @@ direct_declarator
 
 pointer
   : '*' pointer {
-    ParseNode *node = CreatePrimitiveParseNode(POINTER, @1.first_line);
+    Node *node = CreatePrimitiveParseNode(POINTER, @1.first_line);
     AddChild(node, $2);
     $$ = node;
   }
@@ -536,7 +561,7 @@ pointer
 
 parameter_list
   : parameter_declaration {
-    ParseNode *list = CreatePrimitiveParseNode(PARAMETER_LIST, @1.first_line);
+    Node *list = CreatePrimitiveParseNode(PARAMETER_LIST, @1.first_line);
     AddChild(list, $1);
     $$ = list;
   }
@@ -555,7 +580,7 @@ parameter_declaration
 
 identifier_list
   : identifier {
-    ParseNode *list = CreatePrimitiveParseNode(IDENTIFIER_LIST, @1.first_line);
+    Node *list = CreatePrimitiveParseNode(IDENTIFIER_LIST, @1.first_line);
     AddChild(list, $1);
     $$ = list;
   }
@@ -566,11 +591,11 @@ identifier_list
 
 type_name
   : type_specifier pointer {
-    ParseNode *deepest_pointer = $2;
+    Node *deepest_pointer = $2;
 
     while (1) {
       if (dynarray_length(deepest_pointer->childs->list) > 0) {
-        ParseNode *child = (ParseNode *)dinitial(deepest_pointer->childs->list);
+        Node *child = (Node *)dinitial(deepest_pointer->childs->list);
         if (child->type == T_POINTER) {
           deepest_pointer = child;
           continue;
@@ -593,20 +618,20 @@ initializer
 
 initializer_list
   : designator_list '=' initializer {
-    ParseNode *list = CreatePrimitiveParseNode(INITIALIZER_LIST, @1.first_line);
-    ParseNode *tuple = CreatePrimitiveParseNode(TUPLE, @1.first_line);
+    Node *list = CreatePrimitiveParseNode(INITIALIZER_LIST, @1.first_line);
+    Node *tuple = CreatePrimitiveParseNode(TUPLE, @1.first_line);
     AddChild(tuple, $1); // designator
     AddChild(tuple, $3); // initializer
     AddChild(list, tuple);
     $$ = list;
   }
   | initializer {
-    ParseNode *list = CreatePrimitiveParseNode(INITIALIZER_LIST, @1.first_line);
+    Node *list = CreatePrimitiveParseNode(INITIALIZER_LIST, @1.first_line);
     AddChild(list, $1);
     $$ = list;
   }
   | initializer_list ',' designator_list '=' initializer {
-    ParseNode *tuple = CreatePrimitiveParseNode(TUPLE, @1.first_line);
+    Node *tuple = CreatePrimitiveParseNode(TUPLE, @1.first_line);
     AddChild(tuple, $3); // designator
     AddChild(tuple, $5); // initializer
     AddChild($1, tuple);
@@ -618,7 +643,7 @@ initializer_list
 
 designator_list
   : designator {
-    ParseNode *node = CreatePrimitiveParseNode(DESIGNATOR_LIST, @1.first_line);
+    Node *node = CreatePrimitiveParseNode(DESIGNATOR_LIST, @1.first_line);
     AddChild(node, $1);
     $$ = node;
   }
@@ -632,22 +657,22 @@ designator
     DESIGNATOR *node = CreateParseNode(DESIGNATOR, @1.first_line);
     node->kind = DESIGNATOR_ARRAY;
     AddChild(node, $2);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | '.' identifier {
     DESIGNATOR *node = CreateParseNode(DESIGNATOR, @1.first_line);
     node->kind = DESIGNATOR_FIELD;
     AddChild(node, $2);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   ;
 
-assert_declaration
-  : ASSERT '(' constant_expression ',' string ')' ';' {
-    ASSERT_DECL *node = CreateParseNode(ASSERT_DECL, @1.first_line);
+static_assert_declaration
+  : STATIC_ASSERT '(' constant_expression ',' string ')' ';' {
+    STATIC_ASSERT_DECL *node = CreateParseNode(STATIC_ASSERT_DECL, @1.first_line);
     node->expr = (EXPRESSION *)$3;
     node->message = (LITERAL *)$5;
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   ;
 
@@ -666,32 +691,32 @@ labeled_statement
     node->kind = LABELED_LABEL;
     node->name = $1;
     AddChild(node, $3);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | CASE constant_expression ':' statement {
     LABELED_STMT *node = CreateParseNode(LABELED_STMT, @1.first_line);
     node->kind = LABELED_CASE;
     node->name = $2;
     AddChild(node, $4);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | DEFAULT ':' statement {
     LABELED_STMT *node = CreateParseNode(LABELED_STMT, @1.first_line);
     node->kind = LABELED_DEFAULT;
     node->name = NULL;
     AddChild(node, $3);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   ;
 
 compound_statement
-  : '{' '}' { $$ = (ParseNode *)CreateParseNode(LIST, @1.first_line); }
+  : '{' '}' { $$ = (Node *)CreateParseNode(LIST, @1.first_line); }
   | '{'  block_item_list '}' { $$ = $2; }
   ;
 
 block_item_list
   : block_item {
-    ParseNode *node = CreatePrimitiveParseNode(BLOCK_LIST, @1.first_line);
+    Node *node = CreatePrimitiveParseNode(BLOCK_LIST, @1.first_line);
     AddChild(node, $1);
     $$ = node;
   }
@@ -706,7 +731,7 @@ block_item
   ;
 
 expression_statement
-  : ';' { $$ = (ParseNode *)NULL; }
+  : ';' { $$ = (Node *)NULL; }
   | expression ';' { $$ = $1; }
   ;
 
@@ -717,21 +742,21 @@ selection_statement
     node->expr = $3;
     AddChild(node, $5);
     AddChild(node, $7);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | IF '(' expression ')' statement {
     SELECT_STMT *node = CreateParseNode(SELECT_STMT, @1.first_line);
     node->kind = SELECT_IF;
     node->expr = $3;
     AddChild(node, $5);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | SWITCH '(' expression ')' statement {
     SELECT_STMT *node = CreateParseNode(SELECT_STMT, @1.first_line);
     node->kind = SELECT_SWITCH;
     node->expr = $3;
     AddChild(node, $5);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   ;
 
@@ -743,7 +768,7 @@ iteration_statement
     node->step = NULL;
     node->cond = $3;
     AddChild(node, $5);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | DO statement WHILE '(' expression ')' ';' {
     ITERATION_STMT *node = CreateParseNode(ITERATION_STMT, @1.first_line);
@@ -752,7 +777,7 @@ iteration_statement
     node->step = NULL;
     node->cond = $5;
     AddChild(node, $2);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | FOR '(' expression_statement expression_statement ')' statement {
     ITERATION_STMT *node = CreateParseNode(ITERATION_STMT, @1.first_line);
@@ -761,7 +786,7 @@ iteration_statement
     node->cond = $4;
     node->step = NULL;
     AddChild(node, $6);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | FOR '(' declaration expression_statement ')' statement {
     ITERATION_STMT *node = CreateParseNode(ITERATION_STMT, @1.first_line);
@@ -770,7 +795,7 @@ iteration_statement
     node->cond = $4;
     node->step = NULL;
     AddChild(node, $6);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | FOR '(' expression_statement expression_statement expression ')' statement {
     ITERATION_STMT *node = CreateParseNode(ITERATION_STMT, @1.first_line);
@@ -779,7 +804,7 @@ iteration_statement
     node->cond = $4;
     node->step = $5;
     AddChild(node, $7);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | FOR '(' declaration expression_statement expression ')' statement {
     ITERATION_STMT *node = CreateParseNode(ITERATION_STMT, @1.first_line);
@@ -788,7 +813,7 @@ iteration_statement
     node->cond = $4;
     node->step = $5;
     AddChild(node, $7);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   ;
 
@@ -797,28 +822,28 @@ jump_statement
     JUMP_STMT *node = CreateParseNode(JUMP_STMT, @1.first_line);
     node->kind = JUMP_GOTO;
     AddChild(node, $2);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | CONTINUE ';' {
     JUMP_STMT *node = CreateParseNode(JUMP_STMT, @1.first_line);
     node->kind = JUMP_CONTINUE;
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | BREAK ';' {
     JUMP_STMT *node = CreateParseNode(JUMP_STMT, @1.first_line);
     node->kind = JUMP_BREAK;
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | RETURN ';' {
     JUMP_STMT *node = CreateParseNode(JUMP_STMT, @1.first_line);
     node->kind = JUMP_RETURN;
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   | RETURN expression ';' {
     JUMP_STMT *node = CreateParseNode(JUMP_STMT, @1.first_line);
     node->kind = JUMP_RETURN;
     AddChild(node, $2);
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   ;
 
@@ -844,7 +869,7 @@ function_definition
     node->specifiers = (LIST *)$1;
     node->declarator = $2;
     node->statements = (LIST *)$3;
-    $$ = (ParseNode *)node;
+    $$ = (Node *)node;
   }
   ;
 
@@ -858,7 +883,9 @@ static const char *yysymbol_name_human(yysymbol_kind_t yysymbol) {
       return "integer";
     case YYSYMBOL_STRING_LITERAL:
       return "string literal";
-    case YYSYMBOL_ASSERT:
+    case YYSYMBOL_ALIGN:
+    case YYSYMBOL_SECTION:
+    case YYSYMBOL_STATIC_ASSERT:
     case YYSYMBOL_SIZEOF:
     case YYSYMBOL_STATIC:
     case YYSYMBOL_INLINE:

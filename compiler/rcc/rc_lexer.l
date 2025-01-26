@@ -77,7 +77,7 @@ WHITESPACE                [ \t\v\f]
 
 "//".*                    { /* consume //-comment */ }
 
-"assert"                  { ADVANCE_POS; return(ASSERT); }
+"static_assert"           { ADVANCE_POS; return(STATIC_ASSERT); }
 "break"                   { ADVANCE_POS; return(BREAK); }
 "case"                    { ADVANCE_POS; return(CASE); }
 "i8"                      { ADVANCE_POS; return(INT8); }
@@ -112,6 +112,8 @@ WHITESPACE                [ \t\v\f]
 "#error"                  { ADVANCE_POS; return(PP_ERROR); }
 "#warning"                { ADVANCE_POS; return(PP_WARNING); }
 "#line"                   { ADVANCE_POS; return(PP_LINE); }
+"align"                   { ADVANCE_POS; return(ALIGN);}
+"section"                 { ADVANCE_POS; return(SECTION);}
 
 {LETTERS}{ALNUM}*         {
   char *tmp = xmalloc(yyleng + 1);
