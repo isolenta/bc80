@@ -2,7 +2,7 @@
 
 #include "asm/libasm.h"
 #include "common/error.h"
-#include "rcc/parser.h"
+#include "rccompiler/parser.h"
 
 typedef struct hashmap hashmap;
 typedef struct dynarray dynarray;

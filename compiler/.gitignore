@@ -2,9 +2,10 @@ asm/as
 asm/disas
 as
 disas
-rcc/rcc
+rcc
 cpp
 asm/test.log
 *.asm
 README.md
 bin/*
+_build/*

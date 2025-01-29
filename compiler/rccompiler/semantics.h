@@ -1,6 +1,6 @@
 #pragma once
 
-#include "rcc/nodes.h"
+#include "rccompiler/nodes.h"
 
 typedef enum SymbolTypeKind {
   TYPE_UNASSIGNED = 0,

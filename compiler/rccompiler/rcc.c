@@ -13,7 +13,7 @@
 #include "common/filesystem.h"
 #include "common/hashmap.h"
 #include "common/mmgr.h"
-#include "rcc/rcc.h"
+#include "rccompiler/rcc.h"
 
 static jmp_buf rcc_env;
 

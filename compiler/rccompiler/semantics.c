@@ -1,10 +1,10 @@
 #include "common/buffer.h"
 #include "common/mmgr.h"
 #include "common/hashmap.h"
-#include "rcc/nodes.h"
-#include "rcc/parse_nodes.h"
-#include "rcc/rcc.h"
-#include "rcc/semantics.h"
+#include "rccompiler/nodes.h"
+#include "rccompiler/parse_nodes.h"
+#include "rccompiler/rcc.h"
+#include "rccompiler/semantics.h"
 
 void declare_type(hashmap *decls_hm,
                     char *name,

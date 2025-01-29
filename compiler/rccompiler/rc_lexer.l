@@ -2,9 +2,9 @@
   #include <ctype.h>
   #include "common/mmgr.h"
   #include "common/buffer.h"
-  #include "rcc/parse_nodes.h"
-  #include "rcc/rcc.h"
-  #include "rcc/parser.h"
+  #include "rccompiler/parse_nodes.h"
+  #include "rccompiler/rcc.h"
+  #include "rccompiler/parser.h"
 
   #include "rc_parser.tab.h"
 

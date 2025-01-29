@@ -6,9 +6,9 @@
 #include "common/hashmap.h"
 #include "common/mmgr.h"
 #include "common/dynarray.h"
-#include "rcc/rcc.h"
-#include "rcc/parser.h"
-#include "rcc/parse_nodes.h"
+#include "rccompiler/rcc.h"
+#include "rccompiler/parser.h"
+#include "rccompiler/parse_nodes.h"
 
 #include "rc_parser.tab.h"
 

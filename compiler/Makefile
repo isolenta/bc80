@@ -1,27 +1,20 @@
-include make.def
+BUILDDIR := _build
 
-all: bindir asm rcc
+.PHONY: all
+all: build
 
-bindir:
-	mkdir -p $(TOPDIR)/bin
+.PHONY: build
+build: $(BUILDDIR)
+	cmake --build $(BUILDDIR) --config Debug
+	cmake --install $(BUILDDIR) --config Debug
 
-.PHONY: asm
-asm: bindir
-	make -C $(TOPDIR)/asm all
-	cp $(TOPDIR)/asm/as $(TOPDIR)/bin/as
-	cp $(TOPDIR)/asm/disas $(TOPDIR)/bin/disas
+$(BUILDDIR):
+	cmake -B$(BUILDDIR)
 
-.PHONY: rcc
-rcc: bindir
-	make -C $(TOPDIR)/rcc all
-	cp $(TOPDIR)/rcc/rcc $(TOPDIR)/bin/rcc
-
-test:
-	make -C $(TOPDIR)/asm test
+test: $(BUILDDIR)
+	cmake --build _build --target test
 
 .PHONY: clean
-clean:
-	make -C $(TOPDIR)/common clean
-	make -C $(TOPDIR)/asm clean
-	make -C $(TOPDIR)/rcc clean
-	rm -f $(TOPDIR)/bin/as $(TOPDIR)/bin/disas $(TOPDIR)/bin/rcc
+clean: $(BUILDDIR)
+	cmake --build $(BUILDDIR) --target clean
+	rm -rf $(BUILDDIR)

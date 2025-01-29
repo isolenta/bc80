@@ -3,9 +3,9 @@
 
 #include "common/buffer.h"
 #include "common/mmgr.h"
-#include "rcc/parse_nodes.h"
-#include "rcc/parser.h"
-#include "rcc/rcc.h"
+#include "rccompiler/parse_nodes.h"
+#include "rccompiler/parser.h"
+#include "rccompiler/rcc.h"
 
 #include "rc_parser.tab.h"
 #include "rc_lexer.yy.h"

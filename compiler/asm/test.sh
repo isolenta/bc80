@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# usage test.sh /path/to/as /path/to/disas [test]
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
@@ -8,8 +10,8 @@ SCRIPTNAME=`realpath $0`
 DIRNAME=`dirname $SCRIPTNAME`
 
 TMPDIR=/tmp/asmtest
-MY_AS=${DIRNAME}/as
-MY_DISAS=${DIRNAME}/disas
+MY_AS=$1
+MY_DISAS=$2
 EXT_AS=z80asm
 
 INPUTDIR=${DIRNAME}/tests
@@ -25,8 +27,8 @@ failed=0
 for infile in $INPUTDIR/*.asm; do
   BASENAME=`basename $infile`
 
-  if [ "$1" != "" ]; then
-    if [ "$BASENAME" != "$1" ]; then
+  if [ "$3" != "" ]; then
+    if [ "$BASENAME" != "$3" ]; then
       continue
     fi
   fi

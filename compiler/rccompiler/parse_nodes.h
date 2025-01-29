@@ -3,8 +3,8 @@
 #include <string.h>
 
 #include "common/mmgr.h"
-#include "rcc/parser.h"
-#include "rcc/nodes.h"
+#include "rccompiler/parser.h"
+#include "rccompiler/nodes.h"
 
 typedef enum LiteralKind
 {
