@@ -22,7 +22,9 @@ typedef enum parse_type
   NODE_LIST,
   NODE_SECTION,
   NODE_REPT,
-  NODE_ENDR
+  NODE_ENDR,
+  NODE_PROFILE,
+  NODE_ENDPROFILE,
 } parse_type;
 
 typedef struct {
@@ -169,6 +171,19 @@ typedef struct {
   const char *fn;
   LIST *args;
 } SECTION;
+
+typedef struct {
+  parse_type type;
+  uint32_t line;
+  const char *fn;
+  LITERAL *name;
+} PROFILE;
+
+typedef struct {
+  parse_type type;
+  uint32_t line;
+  const char *fn;
+} ENDPROFILE;
 
 extern parse_node *new_node_macro_holder;
 

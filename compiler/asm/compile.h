@@ -26,6 +26,11 @@ typedef struct {
 } rept_ctx_t;
 
 typedef struct {
+  int cycles;
+  int bytes;
+} profile_data_t;
+
+typedef struct {
   parse_node *node;
   dynarray *patches;
   hashmap *symtab;
@@ -42,6 +47,10 @@ typedef struct {
   jmp_buf *error_jmp_env;
   rept_ctx_t *curr_rept;
   int lookup_rept_iter_id;
+
+  bool in_profile;
+  profile_data_t current_profile_data;
+  char *current_profile_name;
 } compile_ctx_t;
 
 typedef struct {

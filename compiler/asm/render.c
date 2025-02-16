@@ -45,34 +45,54 @@ uint32_t render_finish(compile_ctx_t *ctx, char **dest_buf) {
   return 0;
 }
 
-void render_byte(compile_ctx_t *ctx, char b) {
+void render_byte(compile_ctx_t *ctx, char b, int cycles) {
   section_ctx_t *section = get_current_section(ctx);
   buffer_append_char(section->content, b);
   section->curr_pc += 1;
+
+  if (ctx->in_profile) {
+    ctx->current_profile_data.cycles += cycles;
+    ctx->current_profile_data.bytes += 1;
+  }
 }
 
-void render_2bytes(compile_ctx_t *ctx, char b1, char b2) {
+void render_2bytes(compile_ctx_t *ctx, char b1, char b2, int cycles) {
   section_ctx_t *section = get_current_section(ctx);
   buffer_append_char(section->content, b1);
   buffer_append_char(section->content, b2);
   section->curr_pc += 2;
+
+  if (ctx->in_profile) {
+    ctx->current_profile_data.cycles += cycles;
+    ctx->current_profile_data.bytes += 2;
+  }
 }
 
-void render_3bytes(compile_ctx_t *ctx, char b1, char b2, char b3) {
+void render_3bytes(compile_ctx_t *ctx, char b1, char b2, char b3, int cycles) {
   section_ctx_t *section = get_current_section(ctx);
   buffer_append_char(section->content, b1);
   buffer_append_char(section->content, b2);
   buffer_append_char(section->content, b3);
   section->curr_pc += 3;
+
+  if (ctx->in_profile) {
+    ctx->current_profile_data.cycles += cycles;
+    ctx->current_profile_data.bytes += 3;
+  }
 }
 
-void render_4bytes(compile_ctx_t *ctx, char b1, char b2, char b3, char b4) {
+void render_4bytes(compile_ctx_t *ctx, char b1, char b2, char b3, char b4, int cycles) {
   section_ctx_t *section = get_current_section(ctx);
   buffer_append_char(section->content, b1);
   buffer_append_char(section->content, b2);
   buffer_append_char(section->content, b3);
   buffer_append_char(section->content, b4);
   section->curr_pc += 4;
+
+  if (ctx->in_profile) {
+    ctx->current_profile_data.cycles += cycles;
+    ctx->current_profile_data.bytes += 4;
+  }
 }
 
 void render_word(compile_ctx_t *ctx, int ival) {
@@ -81,12 +101,20 @@ void render_word(compile_ctx_t *ctx, int ival) {
   buffer_append_char(section->content, ival & 0xff);
   buffer_append_char(section->content, (ival >> 8) & 0xff);
   section->curr_pc += 2;
+
+  if (ctx->in_profile) {
+    ctx->current_profile_data.bytes += 2;
+  }
 }
 
 void render_bytes(compile_ctx_t *ctx, char *buf, uint32_t len) {
   section_ctx_t *section = get_current_section(ctx);
   buffer_append_binary(section->content, buf, len);
   section->curr_pc += len;
+
+  if (ctx->in_profile) {
+    ctx->current_profile_data.bytes += len;
+  }
 }
 
 void render_block(compile_ctx_t *ctx, char filler, uint32_t len) {
@@ -98,6 +126,10 @@ void render_block(compile_ctx_t *ctx, char filler, uint32_t len) {
   xfree(tmp);
 
   section->curr_pc += len;
+
+  if (ctx->in_profile) {
+    ctx->current_profile_data.bytes += len;
+  }
 }
 
 void render_from_file(compile_ctx_t *ctx, char *filename, dynarray *includeopts) {
@@ -120,6 +152,10 @@ void render_from_file(compile_ctx_t *ctx, char *filename, dynarray *includeopts)
   buffer_append_binary(section->content, buf, size);
   xfree(buf);
   section->curr_pc += size;
+
+  if (ctx->in_profile) {
+    ctx->current_profile_data.bytes += size;
+  }
 }
 
 void render_reorg(compile_ctx_t *ctx) {

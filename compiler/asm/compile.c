@@ -472,7 +472,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
 
           if ((def->kind == DEFKIND_DB) || (def->kind == DEFKIND_DM)) {
             if (l->kind == INT)
-              render_byte(&compile_ctx, l->ival);
+              render_byte(&compile_ctx, l->ival, 0);
             else if (l->kind == STR)
               render_bytes(&compile_ctx, l->strval, strlen(l->strval));
             else
@@ -593,6 +593,33 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
       }
     }
 
+    if (node->type == NODE_PROFILE) {
+      PROFILE *pr = (PROFILE *)node;
+
+      if (compile_ctx.in_profile)
+        report_error(&compile_ctx, "nester PROFILE blocks are not allowed");
+
+      LITERAL *name = pr->name;
+      if (name->kind != STR)
+        report_error(&compile_ctx, "PROFILE name must a string");
+
+      memset(&compile_ctx.current_profile_data, 0, sizeof(compile_ctx.current_profile_data));
+      compile_ctx.current_profile_name = xstrdup(name->strval);
+      compile_ctx.in_profile = true;
+    }
+
+    if (node->type == NODE_ENDPROFILE) {
+      if (!compile_ctx.in_profile)
+        report_error(&compile_ctx, "found ENDPROFILE directive outside of PROFILE block");
+
+      report_warning(&compile_ctx, "Profiling for '%s': %d bytes, %d cycles",
+        compile_ctx.current_profile_name,
+        compile_ctx.current_profile_data.bytes,
+        compile_ctx.current_profile_data.cycles);
+
+      xfree(compile_ctx.current_profile_name);
+      compile_ctx.in_profile = false;
+    }
   }
 
   // ==================================================================================================

@@ -60,6 +60,22 @@ const char *get_parse_node_name(parse_node *node) {
       return "list";
       break;
     }
+    case NODE_REPT: {
+      return "rept";
+      break;
+    }
+    case NODE_ENDR: {
+      return "endr";
+      break;
+    }
+    case NODE_PROFILE: {
+      return "profile";
+      break;
+    }
+    case NODE_ENDPROFILE: {
+      return "endprofile";
+      break;
+    }
     default:
       break;
   }
@@ -237,6 +253,29 @@ void print_node(parse_node *node) {
 
       break;
     }
+    case NODE_REPT: {
+      REPT *r = (REPT *)node;
+      LITERAL *count = r->count;
+      printf("(REPT ");
+      print_node((parse_node *)count);
+      printf(") ");
+      break;
+    }
+    case NODE_ENDR:
+      printf("(ENDR) ");
+      break;
+    case NODE_PROFILE: {
+      PROFILE *p = (PROFILE *)node;
+
+      printf("(PROFILE ");
+      print_node((parse_node *)p->name);
+      printf(") ");
+
+      break;
+    }
+    case NODE_ENDPROFILE:
+      printf("(ENDPROFILE) ");
+      break;
     default:
       break;
   }
@@ -415,6 +454,25 @@ static void node_to_string_recurse(parse_node *node, buffer *buf) {
 
       break;
     }
+    case NODE_REPT: {
+      REPT *r = (REPT *)node;
+      buffer_append(buf, "REPT %d ", r->count);
+      break;
+    }
+    case NODE_ENDR:
+      buffer_append(buf, "ENDR ");
+      break;
+    case NODE_PROFILE: {
+      PROFILE *p = (PROFILE *)node;
+
+      buffer_append(buf, "PROFILE ");
+      node_to_string_recurse((parse_node *)p->name, buf);
+
+      break;
+    }
+    case NODE_ENDPROFILE:
+      buffer_append(buf, "ENDPROFILE ");
+      break;
     default:
       break;
   }
