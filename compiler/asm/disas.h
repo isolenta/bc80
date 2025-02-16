@@ -138,6 +138,7 @@ typedef struct disas_node {
   int addr;
   int num_args;
   disas_arg_t args[2];
+  int cycles;
 
   struct disas_node *next;
 } disas_node_t;
@@ -148,6 +149,7 @@ typedef struct {
   bool opt_addr;
   bool opt_source;
   bool opt_labels;
+  bool opt_timings;
   uint16_t org;
   uint16_t curr_addr;
   uint8_t *binary;
@@ -168,6 +170,7 @@ extern char *disassemble(char *data,
                   bool opt_addr,
                   bool opt_source,
                   bool opt_labels,
+                  bool opt_timings,
                   int opt_org);
 extern void disas_render_text(disas_context_t *ctx);
 

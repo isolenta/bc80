@@ -18,6 +18,7 @@ static void print_usage(char *cmd) {
          "  -a              don't add instruction address in the line comment (default: do)\n"
          "  -s              don't add instruction source in the line comment (default: do)\n"
          "  -l              don't add symbolic labels for jumps and calls (default: do)\n"
+         "  -t              don't add timing value per instruction (default: do)\n"
          "  -o <org_addr>   set start address (ORG directive) for this code (default: 0)\n",
          cmd
   );
@@ -61,11 +62,12 @@ int main(int argc, char **argv) {
   desc.opt_addr = true;
   desc.opt_source = true;
   desc.opt_labels = true;
+  desc.opt_timings = true;
   desc.org = 0;
 
   opterr = 0;
 
-  while ((optflag = getopt(argc, argv, "haslo:")) != -1) {
+  while ((optflag = getopt(argc, argv, "haslto:")) != -1) {
     switch (optflag) {
       case 'a':
         desc.opt_addr = false;
@@ -77,6 +79,10 @@ int main(int argc, char **argv) {
 
       case 'l':
         desc.opt_labels = false;
+        break;
+
+      case 't':
+        desc.opt_timings = false;
         break;
 
       case 'o': {

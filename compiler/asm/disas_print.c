@@ -10,6 +10,7 @@
 #define INSTR_COLUMN 8
 #define COMMENT_COLUMN 32
 #define ASCII_DUMP_OFFSET  24
+#define TIMINGS_COLUMN 70
 
 // convert 8/16 bit integer to hexademical representation
 // according 'Intel assembler' format: with h-suffix and leading
@@ -319,6 +320,12 @@ void disas_render_text(disas_context_t *ctx) {
         for (int i = 0; i < node->isize; i++)
           column += disas_printf(ctx, "%c",
             isprint(ctx->binary[node->addr + i]) ? ctx->binary[node->addr + i] : '.');
+      }
+
+      if (ctx->opt_timings) {
+        for (; column < TIMINGS_COLUMN; column++)
+          disas_printf(ctx, " ");
+        disas_printf(ctx,"T=%d", node->cycles);
       }
     }
 

@@ -26,5 +26,6 @@ char *libasm_disas(struct libasm_disas_desc_t *desc) {
                       desc->opt_addr,
                       desc->opt_source,
                       desc->opt_labels,
+                      desc->opt_timings,
                       desc->org);
 }

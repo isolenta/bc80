@@ -34,6 +34,7 @@ struct libasm_disas_desc_t {
   bool opt_addr;                      // add address to output (as comment)
   bool opt_source;                    // add hexdump of opcode (as comment)
   bool opt_labels;                    // add text labels instead of addresses (for jumps and calls)
+  bool opt_timings;                   // add number of cycles per instruction
   int  org;                           // start address
 };
 
