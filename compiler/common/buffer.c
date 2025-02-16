@@ -68,9 +68,7 @@ int buffer_append_va(buffer *buf, const char *fmt, va_list args)
   // Restore the trailing null so that str is unmodified.
   buf->data[buf->len] = '\0';
 
-  // Return vsnprintf's estimate of the space needed.  (Although this is
-  // given as a size_t, we know it will fit in int because it's not more
-  // than MaxAllocSize.)
+  // Return vsnprintf's estimate of the space needed
   return (int) nprinted;
 }
 
@@ -127,6 +125,7 @@ int buffer_append_string(buffer *buf, const char *str)
   int start = buf->len;
   while (*p)
     buffer_append_char(buf, *p++);
+  buffer_append_char(buf, '\0');
   return start;
 }
 
@@ -195,6 +194,8 @@ char *bsprintf(const char *fmt, ...) {
   va_start(args, fmt);
   buffer_appendv(buf, fmt, args);
   va_end(args);
+
+  buffer_append_char(buf, '\0');
 
   result = buffer_dup(buf);
   buffer_free(buf);
