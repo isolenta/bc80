@@ -36,18 +36,18 @@ int main() {
   cfg_pin_as_output(BUS_D7);
 
   cfg_pin_as_output(BUS_MREQ);
-  cfg_pin_as_output(BUS_IORQ);
+  cfg_pin_as_output(BUS_BUSRQ);
   cfg_pin_as_output(BUS_WR);
   cfg_pin_as_output(BUS_RD);
   cfg_pin_as_output(BUS_RESET);
-  cfg_pin_as_output(BUS_INT);
+
+  cfg_pin_as_input(BUS_BUSACK);
 
   set_pin_high(BUS_MREQ);
-  set_pin_high(BUS_IORQ);
+  set_pin_high(BUS_BUSRQ);
   set_pin_high(BUS_WR);
   set_pin_high(BUS_RD);
   set_pin_high(BUS_RESET);
-  set_pin_high(BUS_INT);
 
   while (1) {
     char recvbuf[256];
@@ -105,31 +105,12 @@ int main() {
           }
 
           i += 3;
-        } else if (cmd == CMD_IO_RD) {
-          uint16_t port = (((uint16_t)recvbuf[i + 1]) << 8) | recvbuf[i + 2];
-          uint8_t byte = bc80_read_io(port);
-
-          usb_send(recvbuf + i, 3);
-          usb_send((char *)&byte, 1);
-
-          i += 2;
-        } else if (cmd == CMD_IO_WR) {
-          uint16_t port = (((uint16_t)recvbuf[i + 1]) << 8) | recvbuf[i + 2];
-          uint8_t byte = recvbuf[i + 3];
-
-          bc80_write_io(port, byte);
-
-          usb_send(recvbuf + i, 4);
-
-          i += 3;
-        } else if (cmd == CMD_LCD_CTRL) {
-          uint8_t is_data = recvbuf[i + 1];
-          uint8_t value = recvbuf[i + 2];
-
-          bc80_lcd_ctrl(is_data, value);
-
-          usb_send(recvbuf + i, 3);
-          i += 2;
+        } else if (cmd == CMD_ACQUIRE) {
+          bc80_bus_acquire();
+          usb_send(recvbuf + i, 1);
+        } else if (cmd == CMD_RELEASE) {
+          bc80_bus_release();
+          usb_send(recvbuf + i, 1);
         } else {
           // for unimplemented commands just echo them
           usb_send(recvbuf + i, 1);

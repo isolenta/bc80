@@ -39,15 +39,6 @@ memory access commands:
       reads n bytes starting from [adr] (n <= 128)
   response: 0x08 <adr> <n> <b1>...<bn>
 
-io port access commands:
-  request: 0x0a <port> <b>
-      writes byte to [port]
-  response: 0x0a <port> <b>
-
-  request: 0x0c <port>
-      reads byte from [port]
-  response: 0x0c <port> <b>
-
 */
 
 #define VAR_RAW     (0 << 0)
@@ -59,8 +50,8 @@ io port access commands:
 #define CMD_MEM_RD   (0x04 | VAR_BATCH)
 #define CMD_MEM_WRN  (0x06 | VAR_BATCH)
 #define CMD_MEM_RDN  (0x08 | VAR_BATCH)
-#define CMD_IO_WR    (0x0A | VAR_BATCH)
-#define CMD_IO_RD    (0x0C | VAR_BATCH)
+#define CMD_ACQUIRE  (0x0A | VAR_BATCH)
+#define CMD_RELEASE  (0x0C | VAR_BATCH)
 #define CMD_LCD_CTRL (0x0E | VAR_BATCH)
 
 #define BATCH_MAX_SIZE (128)
@@ -130,11 +121,11 @@ io port access commands:
 #define BUS_D6      PIN_PB11
 #define BUS_D7      PIN_PB12
 #define BUS_MREQ    PIN_PB13
-#define BUS_IORQ    PIN_PB14
+#define BUS_BUSRQ   PIN_PB14
 #define BUS_RD      PIN_PB15
 #define BUS_WR      PIN_PC13
 #define BUS_RESET   PIN_PC14
-#define BUS_INT     PIN_PC15
+#define BUS_BUSACK  PIN_PC15
 
 #define BOARD_VER1 0xBC
-#define BOARD_VER2 0x80
+#define BOARD_VER2 0x81

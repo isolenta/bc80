@@ -30,8 +30,13 @@ static inline void cfg_address_pins() {
   cfg_pin_as_output(BUS_A15);
 }
 
-static inline void cfg_data_pins(bool output) {
-  if (output) {
+enum {
+  DBUS_MODE_OUTPUT = 1,
+  DBUS_MODE_INPUT,
+};
+
+static inline void cfg_data_pins(int dbus_mode) {
+  if (dbus_mode == DBUS_MODE_OUTPUT) {
     cfg_pin_as_output(BUS_D0);
     cfg_pin_as_output(BUS_D1);
     cfg_pin_as_output(BUS_D2);
@@ -54,7 +59,6 @@ static inline void cfg_data_pins(bool output) {
 
 static inline void cfg_bus_control_pins() {
   cfg_pin_as_output(BUS_MREQ);
-  cfg_pin_as_output(BUS_IORQ);
   cfg_pin_as_output(BUS_WR);
   cfg_pin_as_output(BUS_RD);
 }
@@ -89,10 +93,9 @@ static inline void cfg_release_bus() {
 
   // don't drive bus control signals as well except RESET: we'll use it to lock/unlock CPU
   cfg_pin_as_input(BUS_MREQ);
-  cfg_pin_as_input(BUS_IORQ);
+  cfg_pin_as_input(BUS_BUSRQ);
   cfg_pin_as_input(BUS_WR);
   cfg_pin_as_input(BUS_RD);
-  cfg_pin_as_input(BUS_INT);
 }
 
 static inline uint8_t read_data() {
@@ -167,14 +170,11 @@ static inline void set_data(uint8_t byte) {
 }
 
 void bc80_write_mem(uint16_t addr, uint8_t byte) {
-  cfg_address_pins();
-  cfg_bus_control_pins();
-  cfg_data_pins(true);
+  cfg_data_pins(DBUS_MODE_OUTPUT);
 
   set_address(addr);
   set_data(byte);
 
-  set_pin_high(BUS_IORQ);
   set_pin_high(BUS_RD);
 
   set_pin_low(BUS_WR);
@@ -184,20 +184,15 @@ void bc80_write_mem(uint16_t addr, uint8_t byte) {
 
   set_pin_high(BUS_MREQ);
   set_pin_high(BUS_WR);
-
-  cfg_release_bus();
 }
 
 uint8_t bc80_read_mem(uint16_t addr) {
   uint8_t result;
 
-  cfg_address_pins();
-  cfg_bus_control_pins();
-  cfg_data_pins(false);
+  cfg_data_pins(DBUS_MODE_INPUT);
 
   set_address(addr);
 
-  set_pin_high(BUS_IORQ);
   set_pin_high(BUS_WR);
 
   set_pin_low(BUS_RD);
@@ -210,129 +205,35 @@ uint8_t bc80_read_mem(uint16_t addr) {
   set_pin_high(BUS_MREQ);
   set_pin_high(BUS_RD);
 
-  cfg_release_bus();
-
   return result;
 }
 
-void bc80_write_io(uint16_t addr, uint8_t byte) {
+void bc80_bus_acquire()
+{
+  // disable CPU bus access
+  set_pin_low(BUS_RESET); // TODO: use BUSREQ/BUSACK
+
+  // configure bus pins (address and control) as output push-pull
+  // and data bus pins will be configured in the read/write routine
   cfg_address_pins();
   cfg_bus_control_pins();
-  cfg_data_pins(true);
 
-  set_address(addr);
-  set_data(byte);
-
-  set_pin_high(BUS_MREQ);
+  // initial state for control pins
   set_pin_high(BUS_RD);
-
-  set_pin_low(BUS_IORQ);
-  set_pin_low(BUS_WR);
-
-  delay_1us();
-
   set_pin_high(BUS_WR);
-  set_pin_high(BUS_IORQ);
-
-  cfg_release_bus();
+  set_pin_high(BUS_MREQ);
 }
 
-uint8_t bc80_read_io(uint16_t addr) {
-  uint8_t result;
-
-  cfg_address_pins();
-  cfg_bus_control_pins();
-  cfg_data_pins(false);
-
-  set_address(addr);
-
-  set_pin_high(BUS_MREQ);
-  set_pin_high(BUS_WR);
-
-  set_pin_low(BUS_RD);
-  set_pin_low(BUS_IORQ);
-
-  delay_1us();
-
-  result = read_data();
-
-  set_pin_high(BUS_IORQ);
+void bc80_bus_release()
+{
+  // initial state for control pins
   set_pin_high(BUS_RD);
+  set_pin_high(BUS_WR);
+  set_pin_high(BUS_MREQ);
 
+  // configure all bus pins to hi-z state
   cfg_release_bus();
 
-  return result;
-}
-
-void bc80_lcd_ctrl(uint8_t is_data, uint8_t val) {
-  // 1602 pins to 8255 mapping:
-  //  RS: PC2
-  //  EN: PC3
-  //  D4: PC4
-  //  D5: PC5
-  //  D6: PC6
-  //  D7: PC7
-
-  // function expected that PortC is configured as output
-
-#define CTL_BIT_8255(bitnum, set) ((bitnum << 1) | (set & 1))
-  // data bus to 0
-  bc80_write_io(0x07, CTL_BIT_8255(4, 0));
-  bc80_write_io(0x07, CTL_BIT_8255(5, 0));
-  bc80_write_io(0x07, CTL_BIT_8255(6, 0));
-  bc80_write_io(0x07, CTL_BIT_8255(7, 0));
-
-  // reset RS, EN
-  bc80_write_io(0x07, CTL_BIT_8255(2, 0));
-  bc80_write_io(0x07, CTL_BIT_8255(3, 0));
-
-  // for DATA set RS
-  if (is_data)
-    bc80_write_io(0x07, CTL_BIT_8255(2, 1));
-
-  // high half-byte
-  if (val & 0x10)
-    bc80_write_io(0x07, CTL_BIT_8255(4, 1));
-  if (val & 0x20)
-    bc80_write_io(0x07, CTL_BIT_8255(5, 1));
-  if (val & 0x40)
-    bc80_write_io(0x07, CTL_BIT_8255(6, 1));
-  if (val & 0x80)
-    bc80_write_io(0x07, CTL_BIT_8255(7, 1));
-
-  // set EN
-  bc80_write_io(0x07, CTL_BIT_8255(3, 1));
-
-  delay_us(2);
-
-  // reset EN
-  bc80_write_io(0x07, CTL_BIT_8255(3, 0));
-
-  delay_us(200);
-
-  // data bus to 0
-  bc80_write_io(0x07, CTL_BIT_8255(4, 0));
-  bc80_write_io(0x07, CTL_BIT_8255(5, 0));
-  bc80_write_io(0x07, CTL_BIT_8255(6, 0));
-  bc80_write_io(0x07, CTL_BIT_8255(7, 0));
-
-  // low half-byte
-  if (val & 0x1)
-    bc80_write_io(0x07, CTL_BIT_8255(4, 1));
-  if (val & 0x2)
-    bc80_write_io(0x07, CTL_BIT_8255(5, 1));
-  if (val & 0x4)
-    bc80_write_io(0x07, CTL_BIT_8255(6, 1));
-  if (val & 0x8)
-    bc80_write_io(0x07, CTL_BIT_8255(7, 1));
-
-  // set EN
-  bc80_write_io(0x07, CTL_BIT_8255(3, 1));
-
-  delay_us(2);
-
-  // reset EN
-  bc80_write_io(0x07, CTL_BIT_8255(3, 0));
-
-  delay_us(2000);
+  // enable CPU bus access
+  set_pin_high(BUS_RESET);
 }

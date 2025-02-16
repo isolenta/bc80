@@ -14,11 +14,7 @@
 
 static command_t *commands = NULL;
 static char *g_ttyfile = NULL;
-static int g_reset_state = 0;
-
-static void lcd_set_xy(uint8_t x, uint8_t y);
-static void lcd_clear();
-static void lcd_puts(char *str);
+int g_bus_state = 0;
 
 static void hex_dump(void* data, ssize_t size, uint16_t baseaddr) {
   int i, c;
@@ -101,17 +97,12 @@ static int cmd_help(dynarray *args) {
          "                      in this case they will written on consequent addresses.\n"
          "rd <addr> [n]         Read value(s) from memory. <n> means number of consequent\n"
          "                      bytes to read (default: 1)\n"
-         "out <port> <value>    Write byte value to IO port\n"
-         "in <port>             Read byte value from IO port\n"
          "<PIN> [1|0]           Raw pin access. If argument omitted returns current pin state.\n"
          "                      If argument specified changes pin state to value specified.\n"
          "pins                  Show suggested pins mapping\n"
          "memtest [start [end]] Test memory (write pseudo random data pattern and read back)\n"
-         "lcdi <value>          Write instruction to LCD1602\n"
-         "lcdd <value>          Write data to LCD1602\n"
-         "lcd_test              Initialize sequence and data output to LCD1602\n"
-         "lock                  Lock CPU bus access (permanent RESET)\n"
-         "unlock                Unlock CPU bus access\n"
+         "acquire               Acquire CPU bus\n"
+         "release               Release CPU bus\n"
          "load <file> [<addr>]  Load <file> contents to RAM. Default destination address is 0.\n"
          "help                  This message\n"
          "quit                  Quit\n"
@@ -157,8 +148,8 @@ static int cmd_wr(dynarray *args) {
     return 1;
   }
 
-  if (g_reset_state != 0) {
-    printf("it's possible to operate with CPU bus only under RESET state (use lock/unlock commands)\n");
+  if (g_bus_state != BUS_ACQUIRED) {
+    printf("use 'acquire' before accessing the bus from debugger\n");
     return 0;
   }
 
@@ -246,8 +237,8 @@ static int cmd_rd(dynarray *args) {
     return 1;
   }
 
-  if (g_reset_state != 0) {
-    printf("it's possible to operate with CPU bus only under RESET state (use lock/unlock commands)\n");
+  if (g_bus_state != BUS_ACQUIRED) {
+    printf("use 'acquire' before accessing the bus from debugger\n");
     return 0;
   }
 
@@ -314,245 +305,6 @@ cmd_rd_exit:
   return 0;
 }
 
-static int cmd_out(dynarray *args) {
-  if (dynarray_length(args) < 3) {
-    printf("invalid number of arguments: required 3 arguments\n");
-    return 0;
-  }
-
-  int fd = open(g_ttyfile, O_RDWR);
-  if (fd < 0) {
-    perror(g_ttyfile);
-    return 1;
-  }
-
-  if (g_reset_state != 0) {
-    printf("it's possible to operate with CPU bus only under RESET state (use lock/unlock commands)\n");
-    return 0;
-  }
-
-  uint8_t req[] = {CMD_IO_WR, 0, 0, 0};
-  uint8_t resp[4];
-  uint16_t port;
-
-  int ival;
-  bool parse_ok = parse_integer((char *)dfirst(dynarray_nth_cell(args, 1)), &ival);
-  if (!parse_ok) {
-    printf("invalid argument '%s': hex integer required\n", (char *)dfirst(dynarray_nth_cell(args, 1)));
-    goto cmd_out_exit;
-  }
-
-  port = (uint16_t)ival;
-  req[1] = (port >> 8) & 0xff;
-  req[2] = port & 0xff;
-
-  parse_ok = parse_integer((char *)dfirst(dynarray_nth_cell(args, 2)), &ival);
-  if (!parse_ok) {
-    printf("invalid argument '%s': hex integer required\n", (char *)dfirst(dynarray_nth_cell(args, 2)));
-    goto cmd_out_exit;
-  }
-
-  req[3] = (uint8_t)ival;
-
-  ssize_t ret = write(fd, req, 4);
-  if (ret != 4) {
-    perror("CMD_IO_WR write");
-    goto cmd_out_exit;
-  }
-
-  ret = read_all(fd, resp, 4);
-  if (ret != 4) {
-    perror("CMD_IO_WR read");
-    goto cmd_out_exit;
-  }
-
-  if (memcmp(req, resp, 4) != 0) {
-    printf("invalid response from device while CMD_IO_WR");
-    goto cmd_out_exit;
-  }
-
-  printf("IO[%04X] := %02X\n", port, req[3]);
-
-cmd_out_exit:
-  close(fd);
-  return 0;
-}
-
-static void lcd_write(uint8_t data, bool is_data) {
-  uint8_t req[] = {CMD_LCD_CTRL, 0, 0};
-  uint8_t resp[3];
-
-  int fd = open(g_ttyfile, O_RDWR);
-  if (fd < 0) {
-    perror(g_ttyfile);
-    return;
-  }
-
-  req[1] = is_data;
-  req[2] = data;
-
-  ssize_t ret = write(fd, req, 3);
-  if (ret != 3) {
-    perror("CMD_LCD_CTRL write");
-    close(fd);
-    return;
-  }
-
-  ret = read_all(fd, resp, 3);
-  if (ret != 3) {
-    perror("CMD_LCD_CTRL read");
-    close(fd);
-    return;
-  }
-
-  if (memcmp(req, resp, 3) != 0) {
-    printf("invalid response from device while CMD_LCD_CTRL");
-    close(fd);
-    return;
-  }
-
-  close(fd);
-}
-
-static void lcd_set_xy(uint8_t x, uint8_t y) {
-  uint8_t cmd = x;
-
-  if (y > 0)
-    cmd += 0x40;
-
-  cmd |= 0x80;
-
-  lcd_write(cmd, false);
-}
-
-static void lcd_clear() {
-  lcd_write(0x1, false);
-}
-
-static void lcd_puts(char *str) {
-  while (*str) {
-    lcd_write(*str++, true);
-  }
-}
-
-static int cmd_lcd_test(dynarray *args) {
-  lcd_write(0x02, false);
-  lcd_write(0x28, false);
-  lcd_write(0x0c, false);
-  lcd_write(0x06, false);
-  lcd_write(0x01, false);
-
-  lcd_puts("Hello world");
-
-  return 0;
-}
-
-static int cmd_lcd(dynarray *args) {
-  if (dynarray_length(args) < 2) {
-    printf("invalid number of arguments: required 2 arguments\n");
-    return 0;
-  }
-
-  int fd = open(g_ttyfile, O_RDWR);
-  if (fd < 0) {
-    perror(g_ttyfile);
-    return 0;
-  }
-
-  uint8_t req[] = {CMD_LCD_CTRL, 0, 0};
-  uint8_t resp[3];
-
-  int ival;
-  bool parse_ok = parse_integer((char *)dfirst(dynarray_nth_cell(args, 1)), &ival);
-  if (!parse_ok) {
-    printf("invalid argument '%s': hex integer required\n", (char *)dfirst(dynarray_nth_cell(args, 1)));
-    goto cmd_lcd_exit;
-  }
-
-  if (strcasecmp((char *)dfirst(dynarray_nth_cell(args, 0)), "lcdi") == 0)
-    req[1] = 0;
-  else
-    req[1] = 1;
-
-  req[2] = (uint8_t)ival;
-
-  ssize_t ret = write(fd, req, 3);
-  if (ret != 3) {
-    perror("CMD_LCD_CTRL write");
-    goto cmd_lcd_exit;
-  }
-
-  ret = read_all(fd, resp, 3);
-  if (ret != 3) {
-    perror("CMD_LCD_CTRL read");
-    goto cmd_lcd_exit;
-  }
-
-  if (memcmp(req, resp, 3) != 0) {
-    printf("invalid response from device while CMD_LCD_CTRL");
-    goto cmd_lcd_exit;
-  }
-
-  printf("LCD INSTR := %02X\n", req[2]);
-
-cmd_lcd_exit:
-  close(fd);
-  return 0;
-}
-
-static int cmd_in(dynarray *args) {
-  if (dynarray_length(args) < 2) {
-    printf("invalid number of arguments: required 2 arguments\n");
-    return 0;
-  }
-
-  int fd = open(g_ttyfile, O_RDWR);
-  if (fd < 0) {
-    perror(g_ttyfile);
-    return 1;
-  }
-
-  if (g_reset_state != 0) {
-    printf("it's possible to operate with CPU bus only under RESET state (use lock/unlock commands)\n");
-    return 0;
-  }
-
-  uint8_t req[] = {CMD_IO_RD, 0, 0};
-  uint8_t resp[4];
-  uint16_t port;
-
-  int ival;
-  bool parse_ok = parse_integer((char *)dfirst(dynarray_nth_cell(args, 1)), &ival);
-  if (!parse_ok) {
-    printf("invalid argument '%s': hex integer required\n", (char *)dfirst(dynarray_nth_cell(args, 1)));
-    goto cmd_in_exit;
-  }
-
-  port = (uint16_t)ival;
-  req[1] = (port >> 8) & 0xff;
-  req[2] = port & 0xff;
-
-  ssize_t ret = write(fd, req, 3);
-  if (ret != 3) {
-    perror("CMD_IO_RD write");
-    goto cmd_in_exit;
-  }
-
-  ret = read_all(fd, resp, 4);
-  if (ret != 4) {
-    perror("CMD_IO_RD read");
-    goto cmd_in_exit;
-  }
-
-  if (memcmp(req, resp, 3) != 0)
-    printf("invalid response from device while CMD_IO_RD");
-
-  printf("IO[%04X]: %02X\n", port, resp[3]);
-
-cmd_in_exit:
-  close(fd);
-  return 0;
-}
 
 static int cmd_pin(dynarray *args) {
   ssize_t ret;
@@ -690,10 +442,6 @@ static int cmd_pin(dynarray *args) {
       goto cmd_pin_exit;
     }
 
-    if (pincode == PIN_PC14) {
-      g_reset_state = (subcmd == SUBCMD_SET_HI) ? 1 : 0;
-    }
-
     if (!quiet)
       printf("%s := %s\n", (char *)dinitial(args), (char *)dsecond(args));
   }
@@ -716,7 +464,7 @@ static int cmd_pins(dynarray *args) {
          "pa7   A7                pb12  D7\n"
          "pa8   A8\n"
          "pa9   A9                pb13  MREQ\n"
-         "pa10  A10               pb14  IORQ\n"
+         "pa10  A10               pb14  BUSRQ\n"
          "pa15  A11               pb15  RD\n"
          "pb0   A12               pc13  WR\n"
          "pb1   A13               pc14  RESET\n"
@@ -776,26 +524,81 @@ static uint8_t mem_read(int fd, uint16_t addr) {
   return resp[3];
 }
 
-static int cmd_lock(dynarray *args) {
+static int cmd_acquire(dynarray *args) {
   dynarray *fake_args = NULL;
 
-  // just alias for 'pc14 0', pc14 is RESET pin
-  fake_args = dynarray_append_ptr(fake_args, strdup("pc14"));
-  fake_args = dynarray_append_ptr(fake_args, strdup("0"));
-  fake_args = dynarray_append_ptr(fake_args, strdup("q"));  // quiet mode: don't print current pin state
-  cmd_pin(fake_args);
+  uint8_t req[] = {CMD_ACQUIRE};
+  uint8_t resp[1];
+  uint16_t port;
+
+  int fd = open(g_ttyfile, O_RDWR);
+  if (fd < 0) {
+    perror(g_ttyfile);
+    return 1;
+  }
+
+  ssize_t ret = write(fd, req, 1);
+  if (ret != 1) {
+    perror("CMD_ACQUIRE write");
+    close(fd);
+    return 0xff;
+  }
+
+  ret = read_all(fd, resp, 1);
+  if (ret != 1) {
+    perror("CMD_ACQUIRE read");
+    close(fd);
+    return 0xff;
+  }
+
+  if (memcmp(req, resp, 1) != 0) {
+    printf("invalid response from device while CMD_ACQUIRE");
+    close(fd);
+    return 0xff;
+  }
+
+  g_bus_state = BUS_ACQUIRED;
+  close(fd);
 
   return 0;
 }
 
-int cmd_unlock(dynarray *args) {
+int cmd_release(dynarray *args) {
   dynarray *fake_args = NULL;
 
-  // just alias for 'pc14 1', pc14 is RESET pin
-  fake_args = dynarray_append_ptr(fake_args, strdup("pc14"));
-  fake_args = dynarray_append_ptr(fake_args, strdup("1"));
-  fake_args = dynarray_append_ptr(fake_args, strdup("q"));  // quiet mode: don't print current pin state
-  cmd_pin(fake_args);
+  uint8_t req[] = {CMD_RELEASE};
+  uint8_t resp[1];
+  uint16_t port;
+
+  int fd = open(g_ttyfile, O_RDWR);
+  if (fd < 0) {
+    perror(g_ttyfile);
+    close(fd);
+    return 1;
+  }
+
+  ssize_t ret = write(fd, req, 1);
+  if (ret != 1) {
+    perror("CMD_RELEASE write");
+    close(fd);
+    return 0xff;
+  }
+
+  ret = read_all(fd, resp, 1);
+  if (ret != 1) {
+    perror("CMD_RELEASE read");
+    close(fd);
+    return 0xff;
+  }
+
+  if (memcmp(req, resp, 1) != 0) {
+    printf("invalid response from device while CMD_RELEASE");
+    close(fd);
+    return 0xff;
+  }
+
+  g_bus_state = BUS_RELEASED;
+  close(fd);
 
   return 0;
 }
@@ -836,21 +639,11 @@ static int cmd_memtest(dynarray *args) {
   uint32_t a = 1664525;
   uint32_t c = 1013904223;
 
-  // we can acquire CPU bus only during CPU RESET state: set RESET to low (active) state
-  cmd_lock(NULL);
+  cmd_acquire(NULL);
 
   // hide cursor
   printf("\e[?25l");
-
-  lcd_clear();
-  lcd_set_xy(0, 0);
-  lcd_puts("MEMTEST...");
-
-  lcd_set_xy(0, 1);
-  lcd_puts("pass 1/2: ");
-
   printf("write test pattern to memory\n");
-  int prev_progress = 0;
   for (int addr = start_addr; addr <= end_addr; addr++) {
     // generate pseudo random test value
     seed = a * seed + c;
@@ -858,28 +651,11 @@ static int cmd_memtest(dynarray *args) {
 
     int progress = (addr - start_addr) * 100 / (end_addr - start_addr);
     printf("\r%d%% completed", progress);
-
-    if (progress > prev_progress) {
-      char tmp[4];
-      lcd_set_xy(11, 1);
-      snprintf(tmp, sizeof(tmp), "%d%%", progress);
-      lcd_puts(tmp);
-    }
-
-    prev_progress = progress;
   }
   printf("\n");
 
-  lcd_clear();
-  lcd_set_xy(0, 0);
-  lcd_puts("MEMTEST...");
-
-  lcd_set_xy(0, 1);
-  lcd_puts("pass 2/2: ");
-
   printf("read test pattern from memory\n");
   seed = 0;
-  prev_progress = 0;
   for (int addr = start_addr; addr <= end_addr; addr++) {
     seed = a * seed + c;
     uint8_t test_value = (uint8_t)(seed % 256);
@@ -893,40 +669,14 @@ static int cmd_memtest(dynarray *args) {
     } else {
       printf("\r%d%% completed", progress);
     }
-
-    if (progress > prev_progress) {
-      char tmp[4];
-      lcd_set_xy(11, 1);
-      snprintf(tmp, sizeof(tmp), "%d%%", progress);
-      lcd_puts(tmp);
-    }
-
-    prev_progress = progress;
   }
   printf("\n");
 
   // show cursor
   printf("\e[?25h");
-
   printf("memory test finished: %d bytes, %d errors\n", end_addr - start_addr + 1, num_errors);
 
-  lcd_clear();
-  lcd_set_xy(0, 0);
-
-  lcd_set_xy(0, 0);
-  lcd_puts("MEMTEST done");
-
-  lcd_set_xy(0, 1);
-  char tmp[20];
-  if (num_errors == 0)
-    snprintf(tmp, sizeof(tmp), "%d bytes: OK", end_addr - start_addr + 1);
-  else
-    snprintf(tmp, sizeof(tmp), "Errs %d/%d", num_errors, end_addr - start_addr + 1);
-
-  lcd_puts(tmp);
-
-  // deactivate CPU RESET
-  cmd_unlock(NULL);
+  cmd_release(NULL);
 
 cmd_memtest_exit:
   close(fd);
@@ -1104,8 +854,7 @@ static int cmd_load(dynarray *args) {
     load_addr = (uint16_t)(ival & 0xffff);
   }
 
-  // we can acquire CPU bus only during CPU RESET state: set RESET to low (active) state
-  cmd_lock(NULL);
+  cmd_acquire(NULL);
 
   char *pbuf = buf;
   while (size > 0) {
@@ -1115,8 +864,7 @@ static int cmd_load(dynarray *args) {
     load_addr++;
   }
 
-  // deactivate CPU RESET
-  cmd_unlock(NULL);
+  cmd_release(NULL);
 
 cmd_load_exit:
   free(buf);
@@ -1162,14 +910,6 @@ void init_commands() {
   commands[idx].callback = cmd_rd;
   ++idx;
 
-  commands[idx].name = "in";
-  commands[idx].callback = cmd_in;
-  ++idx;
-
-  commands[idx].name = "out";
-  commands[idx].callback = cmd_out;
-  ++idx;
-
   commands[idx].name = "memtest";
   commands[idx].callback = cmd_memtest;
   ++idx;
@@ -1207,24 +947,12 @@ void init_commands() {
   commands[idx].callback = cmd_pin;
   ++idx;
 
-  commands[idx].name = "lcdi";
-  commands[idx].callback = cmd_lcd;
+  commands[idx].name = "acquire";
+  commands[idx].callback = cmd_acquire;
   ++idx;
 
-  commands[idx].name = "lcdd";
-  commands[idx].callback = cmd_lcd;
-  ++idx;
-
-  commands[idx].name = "lcd_test";
-  commands[idx].callback = cmd_lcd_test;
-  ++idx;
-
-  commands[idx].name = "lock";
-  commands[idx].callback = cmd_lock;
-  ++idx;
-
-  commands[idx].name = "unlock";
-  commands[idx].callback = cmd_unlock;
+  commands[idx].name = "release";
+  commands[idx].callback = cmd_release;
   ++idx;
 
   commands[idx].name = "load";
@@ -1240,6 +968,30 @@ void init_commands() {
 
 command_t *get_command(int idx) {
   return commands + idx;
+}
+
+ssize_t read_nb(int fd, void *buf, size_t count, int timeout_sec) {
+  fd_set read_fds;
+  struct timeval timeout;
+  ssize_t bytes_read = 0;
+
+  int flags = fcntl(fd, F_GETFL, 0);
+  fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+  timeout.tv_sec = timeout_sec;
+  timeout.tv_usec = 0;
+
+  FD_ZERO(&read_fds);
+  FD_SET(fd, &read_fds);
+
+  int result = select(fd + 1, &read_fds, NULL, NULL, &timeout);
+  if (result <= 0) {
+    // read error or timeout
+    return -1;
+  }
+
+  bytes_read = read(fd, buf, count);
+  return bytes_read;
 }
 
 bool check_board(char *ttyfile) {
@@ -1259,7 +1011,9 @@ bool check_board(char *ttyfile) {
     return false;
   }
 
-  ret = read(fd, resp, sizeof(resp));
+#define READDEV_TIMEOUT_SEC 1
+
+  ret = read_nb(fd, resp, sizeof(resp), READDEV_TIMEOUT_SEC);
   if ((ret != sizeof(resp)) || resp[0] != req) {
     close(fd);
     return false;
@@ -1275,14 +1029,20 @@ bool check_board(char *ttyfile) {
   return true;
 }
 
-static char *fs_fileprefix_exists(char *dirpath, char *prefix, bool *found) {
+#if __APPLE__
+char *try_autodetect_board_macos() {
   struct dirent *entry;
   DIR *dir;
-  *found = false;
+  bool found;
+  char *ttyfile = NULL;
 
-  dir = opendir(dirpath);
+  // try to autodetect well known usb-tty device files
+  // TODO: we can autodetect for Linux as well (with another file prefix)
+
+  found = false;
+  dir = opendir("/dev");
   if (dir == NULL) {
-    perror(dirpath);
+    perror("/dev");
     return false;
   }
 
@@ -1290,39 +1050,24 @@ static char *fs_fileprefix_exists(char *dirpath, char *prefix, bool *found) {
     if (entry->d_type != DT_CHR)
       continue;
 
-    if (strstr(entry->d_name, prefix) == entry->d_name) {
-      *found = true;
-      break;
+    if (strstr(entry->d_name, "cu.usbserial") == entry->d_name) {
+      char tmp[128];
+      snprintf(tmp, sizeof(tmp), "/dev/%s", entry->d_name);
+
+      if (check_board(tmp)) {
+        ttyfile = strdup(tmp);
+        found = true;
+        break;
+      }
     }
   }
 
   closedir(dir);
 
-  if (*found) {
-    char tmp[128];
-    snprintf(tmp, sizeof(tmp), "%s/%s", dirpath, entry->d_name);
-    return strdup(tmp);
-  }
+  if (!found)
+    return NULL;
 
-  return NULL;
+  g_ttyfile = ttyfile;
+  return ttyfile;
 }
-
-char *get_ttyfile(int argc, char **argv) {
-  char *result = NULL;
-
-  if (argc > 1) {
-    result = strdup(argv[1]);
-  } else {
-#if __APPLE__
-    // try to autodetect well known usb-tty device files
-    bool found;
-
-    result = fs_fileprefix_exists("/dev", "cu.usbserial", &found);
-    if (!found)
-      result = NULL;
 #endif
-  }
-
-  return result;
-}
-

@@ -195,10 +195,3 @@ bool is_pin_input(int pin) {
   else
     return (port->CRH & (0x3 << ((pinnum - 8) << 2))) == 0;
 }
-
-void delay_us(int n) {
-  uint32_t initial_ticks = DWT->CYCCNT;
-  uint32_t ticks = 72;
-  n *= ticks;
-  while ((DWT->CYCCNT - initial_ticks) < n - ticks);
-}

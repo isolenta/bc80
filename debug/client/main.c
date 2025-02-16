@@ -75,28 +75,44 @@ static void setsignal(int signo, sigfunc_t handler)
 int main(int argc, char **argv)
 {
   int result = 0;
-  char *prompt;
-  char *ttyfile = get_ttyfile(argc, argv);
+  char *prompt_normal;
+  char *prompt_acquired;
+  char *ttyfile = NULL;
 
+  if (argc > 1) {
+    ttyfile = strdup(argv[1]);
+  }
+
+#if __APPLE__
+  if (!ttyfile) {
+    ttyfile = try_autodetect_board_macos();
+    if (!ttyfile) {
+      fprintf(stderr, "can't find device connected, try to specify device file manually\nusage: debug [usb.serial.file]\n");
+      exit(EXIT_FAILURE);
+    }
+  }
+#else
   if (!ttyfile) {
     fprintf(stderr, "usage: debug [usb.serial.file]\n");
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
   if (!check_board(ttyfile)) {
     fprintf(stderr, "device not found at %s\n", ttyfile);
-    exit(1);
+    exit(EXIT_FAILURE);
   }
+#endif
 
-  // deactivate RESET and initialize internal lock state
-  cmd_unlock(NULL);
+  cmd_release(NULL);
 
-  printf("successfully initialize device at %s\n", ttyfile);
+  printf("successfully initialize device at %s (ver.%02X%02X)\n",
+    ttyfile, BOARD_VER1, BOARD_VER2);
 
   init_commands();
 
   setsignal(SIGINT, handle_sigint);
-  prompt = strdup("bc80 # ");
+  prompt_normal = strdup("bc80 # ");
+  prompt_acquired = strdup("bc80 [ACQUIRED] # ");
 
   rl_initialize();
   using_history();
@@ -123,7 +139,10 @@ int main(int argc, char **argv)
     }
 
     sigint_interrupt_enabled = true;
-    line = readline(prompt);
+    if (g_bus_state == BUS_RELEASED)
+      line = readline(prompt_normal);
+    else
+      line = readline(prompt_acquired);
     sigint_interrupt_enabled = false;
 
     if (line != NULL) {
@@ -163,4 +182,5 @@ int main(int argc, char **argv)
   }
 
   free(ttyfile);
+  exit(EXIT_SUCCESS);
 }
