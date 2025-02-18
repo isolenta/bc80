@@ -11,28 +11,28 @@ set(RCC_C_SOURCES
   semantics_global.c
 )
 
-SET(PARSER_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/rc_parser.tab.c)
-SET(LEXER_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/rc_lexer.yy.c)
-SET(LEXER_HEADER ${CMAKE_CURRENT_BINARY_DIR}/rc_lexer.yy.h)
+SET(RC_PARSER_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/rc_parser.tab.c)
+SET(RC_LEXER_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/rc_lexer.yy.c)
+SET(RC_LEXER_HEADER ${CMAKE_CURRENT_BINARY_DIR}/rc_lexer.yy.h)
 
 add_custom_command(
-  OUTPUT ${PARSER_SOURCE}
-  COMMAND ${BISON_EXECUTABLE} -v -d -o ${PARSER_SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/rc_parser.y
+  OUTPUT ${RC_PARSER_SOURCE}
+  COMMAND ${BISON_EXECUTABLE} -v -d -o ${RC_PARSER_SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/rc_parser.y
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/rc_parser.y
+  COMMENT "Generating parser"
 )
 
 add_custom_command(
-  OUTPUT ${LEXER_SOURCE}
-  COMMAND ${FLEX_EXECUTABLE} --header-file=${LEXER_HEADER} -o ${LEXER_SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/rc_lexer.l
+  OUTPUT ${RC_LEXER_SOURCE}
+  COMMAND ${FLEX_EXECUTABLE} --header-file=${RC_LEXER_HEADER} -o ${RC_LEXER_SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/rc_lexer.l
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/rc_lexer.l
+  COMMENT "Generating lexer"
 )
 
-add_custom_target(gen_rcc_parser ALL DEPENDS ${PARSER_SOURCE})
-add_custom_target(gen_rcc_lexer ALL DEPENDS ${LEXER_SOURCE})
+add_custom_target(rcc_generate_sources ALL DEPENDS ${RC_PARSER_SOURCE} ${RC_LEXER_SOURCE})
 
-add_executable(rcc ${RCC_C_SOURCES})
-add_dependencies(rcc gen_rcc_parser)
-add_dependencies(rcc gen_rcc_lexer)
-target_sources(rcc PRIVATE ${PARSER_SOURCE})
-target_sources(rcc PRIVATE ${LEXER_SOURCE})
+add_executable(rcc ${RCC_C_SOURCES} ${RC_PARSER_SOURCE} ${RC_LEXER_SOURCE})
+add_dependencies(rcc rcc_generate_sources)
 target_include_directories(rcc PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(rcc PRIVATE asm common)
 

@@ -20,21 +20,21 @@ SET(LEXER_HEADER ${CMAKE_CURRENT_BINARY_DIR}/lexer.yy.h)
 add_custom_command(
   OUTPUT ${PARSER_SOURCE}
   COMMAND ${BISON_EXECUTABLE} -v -d -o ${PARSER_SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/parser.y
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/parser.y
+  COMMENT "Generating parser"
 )
 
 add_custom_command(
   OUTPUT ${LEXER_SOURCE}
   COMMAND ${FLEX_EXECUTABLE} --header-file=${LEXER_HEADER} -o ${LEXER_SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/lexer.l
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/lexer.l
+  COMMENT "Generating lexer"
 )
 
-add_custom_target(gen_asm_parser ALL DEPENDS ${PARSER_SOURCE})
-add_custom_target(gen_asm_lexer ALL DEPENDS ${LEXER_SOURCE})
+add_custom_target(generate_sources ALL DEPENDS ${PARSER_SOURCE} ${LEXER_SOURCE})
 
-add_library(asm STATIC ${ASM_C_SOURCES})
-add_dependencies(asm gen_asm_parser)
-add_dependencies(asm gen_asm_lexer)
-target_sources(asm PRIVATE ${PARSER_SOURCE})
-target_sources(asm PRIVATE ${LEXER_SOURCE})
+add_library(asm STATIC ${ASM_C_SOURCES} ${PARSER_SOURCE} ${LEXER_SOURCE})
+add_dependencies(asm generate_sources)
 target_include_directories(asm PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(as as.c)
