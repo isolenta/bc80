@@ -45,3 +45,4 @@ typedef struct dynarray dynarray;
 
 extern dynarray *split_string_sep(char *str, char sep, bool first);
 extern bool parse_any_integer(char *strval, int *ival);
+extern char *get_token_at(char *source, int line, int pos, int token_len);

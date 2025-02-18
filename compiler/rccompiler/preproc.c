@@ -525,37 +525,3 @@ char *do_preproc(rcc_ctx_t *ctx, const char *source) {
   buffer_free(dest);
   return result;
 }
-
-char *get_token_at(char *source, int line, int pos, int token_len) {
-  int i;
-  char *p = source;
-
-  // move to desired line
-  line--;
-  while (*p != '\0' && line > 0) {
-    if (p[0] == '\n')
-      line--;
-
-    p++;
-  }
-
-  // move to token start
-  for (i = 0; i < pos - 1; i++) {
-    if (*p == '\0') {
-      return NULL;
-    }
-    p++;
-  }
-
-  char *result = xmalloc(token_len + 1);
-  for (i = 0; i < token_len; i++) {
-    if (*p == '\0')
-      ;
-    result[i] = *p;
-    p++;
-  }
-
-  result[i] = '\0';
-
-  return result;
-}

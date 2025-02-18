@@ -5,6 +5,7 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <string.h>
+#include <libgen.h>
 
 #include "asm/libasm.h"
 #include "asm/snafmt.h"
@@ -36,26 +37,24 @@ static void print_usage(char *cmd) {
 }
 
 static int error_cb(int flags, const char *message, const char *filename, int line, int pos) {
-  (void)pos;
-  fprintf(stderr, "\x1b[31mError");
   if (flags & ERROR_OUT_LOC) {
-    fprintf(stderr, " in %s", filename);
+    fprintf(stderr, "\x1b[97m%s", basename((char *)filename));
     if (flags & ERROR_OUT_LINE)
       fprintf(stderr, ":%d", line);
+    fprintf(stderr, ":\x1b[0m");
   }
-  fprintf(stderr, ": %s\x1b[0m\n", message);
+  fprintf(stderr, " \x1b[91merror:\x1b[0m \x1b[97m%s\x1b[0m\n", message);
   return 1;
 }
 
 static void warning_cb(int flags, const char *message, const char *filename, int line, int pos) {
-  (void)pos;
-  fprintf(stderr, "\x1b[33mWarning");
   if (flags & ERROR_OUT_LOC) {
-    fprintf(stderr, " in %s", filename);
+    fprintf(stderr, "\x1b[97m%s", basename((char *)filename));
     if (flags & ERROR_OUT_LINE)
       fprintf(stderr, ":%d", line);
+    fprintf(stderr, ":\x1b[0m");
   }
-  fprintf(stderr, ": %s\x1b[0m\n", message);
+  fprintf(stderr, " \x1b[95mwarning:\x1b[0m \x1b[97m%s\x1b[0m\n", message);
 }
 
 static jmp_buf error_env;
