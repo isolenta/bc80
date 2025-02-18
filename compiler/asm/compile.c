@@ -31,7 +31,8 @@ static parse_node *eval_literal(compile_ctx_t *ctx, parse_node *node, bool do_ev
 }
 
 // evaluate source expression to its simplest form
-parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar) {
+// literal_evals: set to true if any compile-time arithmetics were performed
+parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar, bool *literal_evals) {
   if (node->type == NODE_LITERAL)
     return eval_literal(ctx, node, do_eval_dollar);
 
@@ -41,7 +42,7 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
     if (nval) {
       if (nval->type == NODE_LITERAL)
         ((LITERAL *)nval)->is_ref = id->is_ref;
-      return expr_eval(ctx, nval, do_eval_dollar);
+      return expr_eval(ctx, nval, do_eval_dollar, literal_evals);
     } else {
       // There is a chance that it's label name inside REPT block.
       // Try to resolve it as suffixed label
@@ -51,7 +52,7 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
         if (nval2) {
           if (nval2->type == NODE_LITERAL)
             ((LITERAL *)nval2)->is_ref = id->is_ref;
-          return expr_eval(ctx, nval2, do_eval_dollar);
+          return expr_eval(ctx, nval2, do_eval_dollar, literal_evals);
         } else {
           return node;
         }
@@ -77,38 +78,42 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
       if (nval) {
         if (nval->type == NODE_LITERAL)
           ((LITERAL *)nval)->is_ref = id->is_ref;
-        return expr_eval(ctx, nval, do_eval_dollar);
+        return expr_eval(ctx, nval, do_eval_dollar, literal_evals);
       }
       else
         return expr->left;
     }
   } else if (expr->kind == UNARY_PLUS) {
-    return expr_eval(ctx, expr->left, do_eval_dollar);
+    return expr_eval(ctx, expr->left, do_eval_dollar, literal_evals);
   } else if (expr->kind == UNARY_MINUS) {
-    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar, literal_evals);
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT)) {
       LITERAL *result = make_node(LITERAL, NULL, 0);
       result->kind = INT;
       result->is_ref = expr->is_ref;
       result->ival = -((LITERAL *)expr->left)->ival;
+      if (literal_evals)
+        *literal_evals = true;
       return (parse_node *)result;
     } else {
       return node;
     }
   } else if (expr->kind == UNARY_NOT) {
-    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar, literal_evals);
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT)) {
       LITERAL *result = (LITERAL *)make_node(LITERAL, NULL, 0);
       result->kind = INT;
       result->is_ref = expr->is_ref;
       result->ival = ~((LITERAL *)expr->left)->ival;
+      if (literal_evals)
+        *literal_evals = true;
       return (parse_node *)result;
     } else {
       return node;
     }
   } else if (expr->kind == BINARY_PLUS) {
-    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
-    expr->right = expr_eval(ctx, expr->right, do_eval_dollar);
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar, literal_evals);
+    expr->right = expr_eval(ctx, expr->right, do_eval_dollar, literal_evals);
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
@@ -116,13 +121,15 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
       result->kind = INT;
       result->is_ref = expr->is_ref;
       result->ival = ((LITERAL *)expr->left)->ival + ((LITERAL *)expr->right)->ival;
+      if (literal_evals)
+        *literal_evals = true;
       return (parse_node *)result;
     } else {
       return node;
     }
   } else if (expr->kind == BINARY_MINUS) {
-    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
-    expr->right = expr_eval(ctx, expr->right, do_eval_dollar);
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar, literal_evals);
+    expr->right = expr_eval(ctx, expr->right, do_eval_dollar, literal_evals);
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
@@ -130,13 +137,15 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
       result->kind = INT;
       result->is_ref = expr->is_ref;
       result->ival = ((LITERAL *)expr->left)->ival - ((LITERAL *)expr->right)->ival;
+      if (literal_evals)
+        *literal_evals = true;
       return (parse_node *)result;
     } else {
       return node;
     }
   } else if (expr->kind == BINARY_MUL) {
-    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
-    expr->right = expr_eval(ctx, expr->right, do_eval_dollar);
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar, literal_evals);
+    expr->right = expr_eval(ctx, expr->right, do_eval_dollar, literal_evals);
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
@@ -144,13 +153,15 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
       result->kind = INT;
       result->is_ref = expr->is_ref;
       result->ival = ((LITERAL *)expr->left)->ival * ((LITERAL *)expr->right)->ival;
+      if (literal_evals)
+        *literal_evals = true;
       return (parse_node *)result;
     } else {
       return node;
     }
   } else if (expr->kind == BINARY_DIV) {
-    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
-    expr->right = expr_eval(ctx, expr->right, do_eval_dollar);
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar, literal_evals);
+    expr->right = expr_eval(ctx, expr->right, do_eval_dollar, literal_evals);
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
@@ -159,6 +170,8 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
         result->kind = INT;
         result->is_ref = expr->is_ref;
         result->ival = ((LITERAL *)expr->left)->ival / ((LITERAL *)expr->right)->ival;
+        if (literal_evals)
+          *literal_evals = true;
         return (parse_node *)result;
       } else
         report_error(ctx, "division by zero");
@@ -166,8 +179,8 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
       return node;
     }
   } else if (expr->kind == BINARY_AND) {
-    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
-    expr->right = expr_eval(ctx, expr->right, do_eval_dollar);
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar, literal_evals);
+    expr->right = expr_eval(ctx, expr->right, do_eval_dollar, literal_evals);
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
@@ -175,13 +188,15 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
       result->kind = INT;
       result->is_ref = expr->is_ref;
       result->ival = ((LITERAL *)expr->left)->ival & ((LITERAL *)expr->right)->ival;
+      if (literal_evals)
+        *literal_evals = true;
       return (parse_node *)result;
     } else {
       return node;
     }
   } else if (expr->kind == BINARY_OR) {
-    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
-    expr->right = expr_eval(ctx, expr->right, do_eval_dollar);
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar, literal_evals);
+    expr->right = expr_eval(ctx, expr->right, do_eval_dollar, literal_evals);
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
@@ -189,13 +204,15 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
       result->kind = INT;
       result->is_ref = expr->is_ref;
       result->ival = ((LITERAL *)expr->left)->ival | ((LITERAL *)expr->right)->ival;
+      if (literal_evals)
+        *literal_evals = true;
       return (parse_node *)result;
     } else {
       return node;
     }
   } else if (expr->kind == BINARY_MOD) {
-    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
-    expr->right = expr_eval(ctx, expr->right, do_eval_dollar);
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar, literal_evals);
+    expr->right = expr_eval(ctx, expr->right, do_eval_dollar, literal_evals);
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
@@ -203,13 +220,15 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
       result->kind = INT;
       result->is_ref = expr->is_ref;
       result->ival = ((LITERAL *)expr->left)->ival % ((LITERAL *)expr->right)->ival;
+      if (literal_evals)
+        *literal_evals = true;
       return (parse_node *)result;
     } else {
       return node;
     }
   } else if (expr->kind == BINARY_SHL) {
-    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
-    expr->right = expr_eval(ctx, expr->right, do_eval_dollar);
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar, literal_evals);
+    expr->right = expr_eval(ctx, expr->right, do_eval_dollar, literal_evals);
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
@@ -217,13 +236,15 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
       result->kind = INT;
       result->is_ref = expr->is_ref;
       result->ival = ((LITERAL *)expr->left)->ival << ((LITERAL *)expr->right)->ival;
+      if (literal_evals)
+        *literal_evals = true;
       return (parse_node *)result;
     } else {
       return node;
     }
   } else if (expr->kind == BINARY_SHR) {
-    expr->left = expr_eval(ctx, expr->left, do_eval_dollar);
-    expr->right = expr_eval(ctx, expr->right, do_eval_dollar);
+    expr->left = expr_eval(ctx, expr->left, do_eval_dollar, literal_evals);
+    expr->right = expr_eval(ctx, expr->right, do_eval_dollar, literal_evals);
 
     if ((expr->left->type == NODE_LITERAL) && (((LITERAL *)expr->left)->kind == INT) &&
           (expr->right->type == NODE_LITERAL) && (((LITERAL *)expr->right)->kind == INT)) {
@@ -231,6 +252,8 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar)
       result->kind = INT;
       result->is_ref = expr->is_ref;
       result->ival = ((LITERAL *)expr->left)->ival >> ((LITERAL *)expr->right)->ival;
+      if (literal_evals)
+        *literal_evals = true;
       return (parse_node *)result;
     } else {
       return node;
@@ -293,7 +316,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
 
     if (node->type == NODE_EQU) {
       EQU *equ = (EQU *)node;
-      hashmap_search(compile_ctx.symtab, equ->name->name, HASHMAP_INSERT, expr_eval(&compile_ctx, (parse_node *)equ->value, false));
+      hashmap_search(compile_ctx.symtab, equ->name->name, HASHMAP_INSERT, expr_eval(&compile_ctx, (parse_node *)equ->value, false, NULL));
     }
 
     if (node->type == NODE_END) {
@@ -310,7 +333,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
       if (dynarray_length(node_sect->args->list) == 0)
         report_error(&compile_ctx, "'section' directive requires at least one argument");
 
-      LITERAL *l = (LITERAL *)expr_eval(&compile_ctx, dinitial(node_sect->args->list), true);
+      LITERAL *l = (LITERAL *)expr_eval(&compile_ctx, dinitial(node_sect->args->list), true, NULL);
       if (l->kind != STR)
         report_error(&compile_ctx, "section name must be a string");
 
@@ -335,7 +358,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
         int address = curr_section->curr_pc;
 
         if (dynarray_length(node_sect->args->list) > 1) {
-          l = (LITERAL *)expr_eval(&compile_ctx, dfirst(dynarray_nth_cell(node_sect->args->list, 1)), true);
+          l = (LITERAL *)expr_eval(&compile_ctx, dfirst(dynarray_nth_cell(node_sect->args->list, 1)), true, NULL);
           if (l->kind != INT)
             report_error(&compile_ctx, "section address must be an integer");
 
@@ -345,7 +368,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
         // by default new section's filler is zero
         uint8_t filler = 0;
         if (dynarray_length(node_sect->args->list) > 2) {
-          l = (LITERAL *)expr_eval(&compile_ctx, dfirst(dynarray_nth_cell(node_sect->args->list, 2)), true);
+          l = (LITERAL *)expr_eval(&compile_ctx, dfirst(dynarray_nth_cell(node_sect->args->list, 2)), true, NULL);
           if (l->kind != INT)
             report_error(&compile_ctx, "section filler must be an integer");
 
@@ -370,7 +393,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
     if (node->type == NODE_ORG) {
       ORG *org = (ORG *)node;
 
-      parse_node *org_val = expr_eval(&compile_ctx, org->value, true);
+      parse_node *org_val = expr_eval(&compile_ctx, org->value, true, NULL);
 
       if (org_val->type == NODE_LITERAL) {
         LITERAL *l = (LITERAL *)org_val;
@@ -411,13 +434,13 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
           ((LITERAL *)filler)->ival = 0;
         } else if (dynarray_length(def->values->list) == 2) {
           // filler value can be evaluated here or later
-          filler = expr_eval(&compile_ctx, dsecond(def->values->list), true);
+          filler = expr_eval(&compile_ctx, dsecond(def->values->list), true, NULL);
         } else {
           report_error(&compile_ctx, "DEFS must contain 1 or 2 arguments");
         }
 
         // size of block must be explicit integer value
-        nrep = expr_eval(&compile_ctx, dinitial(def->values->list), true);
+        nrep = expr_eval(&compile_ctx, dinitial(def->values->list), true, NULL);
         if ((nrep->type != NODE_LITERAL) || (((LITERAL *)nrep)->kind != INT))
           report_error(&compile_ctx, "argument 1 of DEFS must explicit integer literal value");
 
@@ -446,7 +469,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
 
         foreach(def_dc, def->values->list) {
           parse_node *def_elem = (parse_node *)dfirst(def_dc);
-          def_elem = expr_eval(&compile_ctx, def_elem, true);
+          def_elem = expr_eval(&compile_ctx, def_elem, true, NULL);
 
           LITERAL *l;
 
@@ -555,8 +578,22 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
       // evaluate all instruction arguments
       if (instr->args && instr->args->list) {
         foreach(dc, instr->args->list) {
-          dfirst(dc) = expr_eval(&compile_ctx, dfirst(dc), true);
+          bool literal_evals = false;
+          parse_node *arg;
+          bool is_ref = false;
+
+          arg = expr_eval(&compile_ctx, dfirst(dc), true, &literal_evals);
+          dfirst(dc) = arg;
+
+          if (arg->type == NODE_LITERAL) {
+            LITERAL *arg_lit = (LITERAL *)arg;
+            is_ref = arg_lit->is_ref;
+          }
+
+          if (is_ref && literal_evals)
+            report_warning(&compile_ctx, "argument with external parentheses is interpreted as an address");
         }
+
       }
 
       compile_instruction(&compile_ctx, name, instr->args);
@@ -630,7 +667,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
     patch_t *patch = (patch_t *)dfirst(dc);
 
     compile_ctx.lookup_rept_iter_id = patch->rept_iter_id;
-    parse_node *resolved_node = expr_eval(&compile_ctx, patch->node, true);
+    parse_node *resolved_node = expr_eval(&compile_ctx, patch->node, true, NULL);
     compile_ctx.lookup_rept_iter_id = -1;
 
     if (resolved_node->type != NODE_LITERAL) {

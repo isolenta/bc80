@@ -101,7 +101,7 @@ simple_expr
 
 unary_expr
       : simple_expr { $$ = $1; }
-      | T_PLUS simple_expr {
+      | T_PLUS unary_expr {
         EXPR *l = make_node(EXPR, desc->filename, @2.first_line);
         l->kind = UNARY_PLUS;
         l->is_ref = false;
@@ -109,7 +109,7 @@ unary_expr
         l->right = NULL;
         $$ = (parse_node *)l;
       }
-      | T_MINUS simple_expr {
+      | T_MINUS unary_expr {
         EXPR *l = make_node(EXPR, desc->filename, @2.first_line);
         l->kind = UNARY_MINUS;
         l->is_ref = false;
@@ -117,7 +117,7 @@ unary_expr
         l->right = NULL;
         $$ = (parse_node *)l;
       }
-      | T_NOT simple_expr {
+      | T_NOT unary_expr {
         EXPR *l = make_node(EXPR, desc->filename, @2.first_line);
         l->kind = UNARY_NOT;
         l->is_ref = false;
@@ -129,7 +129,7 @@ unary_expr
 
 expr
       : unary_expr { $$ = $1; }
-      | unary_expr T_PLUS unary_expr {
+      | expr T_PLUS expr {
         EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_PLUS;
         l->is_ref = false;
@@ -137,7 +137,7 @@ expr
         l->right = $3;
         $$ = (parse_node *)l;
       }
-      | unary_expr T_MINUS unary_expr {
+      | expr T_MINUS expr {
         EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_MINUS;
         l->is_ref = false;
@@ -145,7 +145,7 @@ expr
         l->right = $3;
         $$ = (parse_node *)l;
       }
-      | unary_expr T_MUL unary_expr {
+      | expr T_MUL expr {
         EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_MUL;
         l->is_ref = false;
@@ -153,7 +153,7 @@ expr
         l->right = $3;
         $$ = (parse_node *)l;
       }
-      | unary_expr T_DIV unary_expr {
+      | expr T_DIV expr {
         EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_DIV;
         l->is_ref = false;
@@ -161,7 +161,7 @@ expr
         l->right = $3;
         $$ = (parse_node *)l;
       }
-      | unary_expr T_AND unary_expr {
+      | expr T_AND expr {
         EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_AND;
         l->is_ref = false;
@@ -169,7 +169,7 @@ expr
         l->right = $3;
         $$ = (parse_node *)l;
       }
-      | unary_expr T_OR unary_expr {
+      | expr T_OR expr {
         EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_OR;
         l->is_ref = false;
@@ -177,7 +177,7 @@ expr
         l->right = $3;
         $$ = (parse_node *)l;
       }
-      | unary_expr T_PERCENT unary_expr {
+      | expr T_PERCENT expr {
         EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_MOD;
         l->is_ref = false;
@@ -185,7 +185,7 @@ expr
         l->right = $3;
         $$ = (parse_node *)l;
       }
-      | unary_expr T_SHL unary_expr {
+      | expr T_SHL expr {
         EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_SHL;
         l->is_ref = false;
@@ -193,7 +193,7 @@ expr
         l->right = $3;
         $$ = (parse_node *)l;
       }
-      | unary_expr T_SHR unary_expr {
+      | expr T_SHR expr {
         EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
         l->kind = BINARY_SHR;
         l->is_ref = false;
