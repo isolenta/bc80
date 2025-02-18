@@ -634,7 +634,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
       PROFILE *pr = (PROFILE *)node;
 
       if (compile_ctx.in_profile)
-        report_error(&compile_ctx, "nester PROFILE blocks are not allowed");
+        report_error(&compile_ctx, "nested PROFILE blocks are not allowed");
 
       LITERAL *name = pr->name;
       if (name->kind != STR)
