@@ -48,7 +48,7 @@
 
 str
       : T_STR {
-        LITERAL *l = make_node(LITERAL, desc->filename, @1.first_line);
+        LITERAL *l = make_node(LITERAL, desc->filename, @1.first_line, @1.first_column);
         l->kind = STR;
         l->strval = $1;
         $$ = (parse_node *)l;
@@ -57,7 +57,7 @@ str
 
 integer
       : T_INT {
-        LITERAL *l = make_node(LITERAL, desc->filename, @1.first_line);
+        LITERAL *l = make_node(LITERAL, desc->filename, @1.first_line, @1.first_column);
         l->kind = INT;
         l->ival = $1;
         $$ = (parse_node *)l;
@@ -66,7 +66,7 @@ integer
 
 dollar
       : T_DOLLAR {
-        LITERAL *l = make_node(LITERAL, desc->filename, @1.first_line);
+        LITERAL *l = make_node(LITERAL, desc->filename, @1.first_line, @1.first_column);
         l->kind = DOLLAR;
         $$ = (parse_node *)l;
       }
@@ -74,7 +74,7 @@ dollar
 
 id
       : T_ID {
-        ID *l = make_node(ID, desc->filename, @1.first_line);
+        ID *l = make_node(ID, desc->filename, @1.first_line, @1.first_column);
         l->name = $1;
         l->is_ref = false;
         $$ = (parse_node *)l;
@@ -83,7 +83,7 @@ id
 
 simple_expr
       : id {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
         l->kind = SIMPLE;
         l->is_ref = false;
         l->left = $1;
@@ -102,7 +102,7 @@ simple_expr
 unary_expr
       : simple_expr { $$ = $1; }
       | T_PLUS unary_expr {
-        EXPR *l = make_node(EXPR, desc->filename, @2.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @2.first_line, @1.first_column);
         l->kind = UNARY_PLUS;
         l->is_ref = false;
         l->left = $2;
@@ -110,7 +110,7 @@ unary_expr
         $$ = (parse_node *)l;
       }
       | T_MINUS unary_expr {
-        EXPR *l = make_node(EXPR, desc->filename, @2.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @2.first_line, @1.first_column);
         l->kind = UNARY_MINUS;
         l->is_ref = false;
         l->left = $2;
@@ -118,7 +118,7 @@ unary_expr
         $$ = (parse_node *)l;
       }
       | T_NOT unary_expr {
-        EXPR *l = make_node(EXPR, desc->filename, @2.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @2.first_line, @1.first_column);
         l->kind = UNARY_NOT;
         l->is_ref = false;
         l->left = $2;
@@ -130,7 +130,7 @@ unary_expr
 expr
       : unary_expr { $$ = $1; }
       | expr T_PLUS expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
         l->kind = BINARY_PLUS;
         l->is_ref = false;
         l->left = $1;
@@ -138,7 +138,7 @@ expr
         $$ = (parse_node *)l;
       }
       | expr T_MINUS expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
         l->kind = BINARY_MINUS;
         l->is_ref = false;
         l->left = $1;
@@ -146,7 +146,7 @@ expr
         $$ = (parse_node *)l;
       }
       | expr T_MUL expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
         l->kind = BINARY_MUL;
         l->is_ref = false;
         l->left = $1;
@@ -154,7 +154,7 @@ expr
         $$ = (parse_node *)l;
       }
       | expr T_DIV expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
         l->kind = BINARY_DIV;
         l->is_ref = false;
         l->left = $1;
@@ -162,7 +162,7 @@ expr
         $$ = (parse_node *)l;
       }
       | expr T_AND expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
         l->kind = BINARY_AND;
         l->is_ref = false;
         l->left = $1;
@@ -170,7 +170,7 @@ expr
         $$ = (parse_node *)l;
       }
       | expr T_OR expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
         l->kind = BINARY_OR;
         l->is_ref = false;
         l->left = $1;
@@ -178,7 +178,7 @@ expr
         $$ = (parse_node *)l;
       }
       | expr T_PERCENT expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
         l->kind = BINARY_MOD;
         l->is_ref = false;
         l->left = $1;
@@ -186,7 +186,7 @@ expr
         $$ = (parse_node *)l;
       }
       | expr T_SHL expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
         l->kind = BINARY_SHL;
         l->is_ref = false;
         l->left = $1;
@@ -194,7 +194,7 @@ expr
         $$ = (parse_node *)l;
       }
       | expr T_SHR expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line);
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
         l->kind = BINARY_SHR;
         l->is_ref = false;
         l->left = $1;
@@ -204,7 +204,7 @@ expr
 
 exprlist
       : expr {
-        LIST *l = make_node(LIST, desc->filename, @1.first_line);
+        LIST *l = make_node(LIST, desc->filename, @1.first_line, @1.first_column);
         l->list = NULL;
         l->list = dynarray_append_ptr(l->list, $1);
         $$ = (parse_node *)l;
@@ -217,7 +217,7 @@ exprlist
 
 label
       : id T_COLON {
-          LABEL *l = make_node(LABEL, desc->filename, @1.first_line);
+          LABEL *l = make_node(LABEL, desc->filename, @1.first_line, @1.first_column);
           l->name = (ID *)$1;
           *statements = dynarray_append_ptr(*statements, l);
         }
@@ -225,90 +225,90 @@ label
 stmt
       : label
       | T_ORG expr {
-        ORG *l = make_node(ORG, desc->filename, @2.first_line);
+        ORG *l = make_node(ORG, desc->filename, @2.first_line, @1.first_column);
         l->value = (parse_node *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_END {
-        END *l = make_node(END, desc->filename, @1.first_line);
+        END *l = make_node(END, desc->filename, @1.first_line, @1.first_column);
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_REPT integer {
-        REPT *l = make_node(REPT, desc->filename, @1.first_line);
+        REPT *l = make_node(REPT, desc->filename, @1.first_line, @1.first_column);
         l->count = (LITERAL *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_ENDR {
-        ENDR *l = make_node(ENDR, desc->filename, @1.first_line);
+        ENDR *l = make_node(ENDR, desc->filename, @1.first_line, @1.first_column);
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_PROFILE str {
-        PROFILE *l = make_node(PROFILE, desc->filename, @1.first_line);
+        PROFILE *l = make_node(PROFILE, desc->filename, @1.first_line, @1.first_column);
         l->name = (LITERAL *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_ENDPROFILE {
-        ENDPROFILE *l = make_node(ENDPROFILE, desc->filename, @1.first_line);
+        ENDPROFILE *l = make_node(ENDPROFILE, desc->filename, @1.first_line, @1.first_column);
         *statements = dynarray_append_ptr(*statements, l);
       }
       | id T_COLON T_EQU expr {
-        EQU *l = make_node(EQU, desc->filename, @1.first_line);
+        EQU *l = make_node(EQU, desc->filename, @1.first_line, @1.first_column);
         l->name = (ID *)$1;
         l->value = (EXPR *)$4;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | id T_EQU expr {
-        EQU *l = make_node(EQU, desc->filename, @1.first_line);
+        EQU *l = make_node(EQU, desc->filename, @1.first_line, @1.first_column);
         l->name = (ID *)$1;
         l->value = (EXPR *)$3;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_INCBIN str {
-        INCBIN *l = make_node(INCBIN, desc->filename, @1.first_line);
+        INCBIN *l = make_node(INCBIN, desc->filename, @1.first_line, @1.first_column);
         l->filename = (LITERAL *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_INCLUDE str {
         LITERAL *filename = (LITERAL *)$2;
-        parse_include(desc, statements, filename->strval, @1.first_line);
+        parse_include(desc, statements, filename->strval);
       }
       | T_DB exprlist {
-        DEF *l = make_node(DEF, desc->filename, @1.first_line);
+        DEF *l = make_node(DEF, desc->filename, @1.first_line, @1.first_column);
         l->kind = DEFKIND_DB;
         l->values = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_DM exprlist {
-        DEF *l = make_node(DEF, desc->filename, @1.first_line);
+        DEF *l = make_node(DEF, desc->filename, @1.first_line, @1.first_column);
         l->kind = DEFKIND_DM;
         l->values = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_DW exprlist {
-        DEF *l = make_node(DEF, desc->filename, @1.first_line);
+        DEF *l = make_node(DEF, desc->filename, @1.first_line, @1.first_column);
         l->kind = DEFKIND_DW;
         l->values = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_DS exprlist {
-        DEF *l = make_node(DEF, desc->filename, @1.first_line);
+        DEF *l = make_node(DEF, desc->filename, @1.first_line, @1.first_column);
         l->kind = DEFKIND_DS;
         l->values = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_SECTION exprlist {
-        SECTION *l = make_node(SECTION, desc->filename, @1.first_line);
+        SECTION *l = make_node(SECTION, desc->filename, @1.first_line, @1.first_column);
         l->args = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | id exprlist {
-        INSTR *l = make_node(INSTR, desc->filename, @1.first_line);
+        INSTR *l = make_node(INSTR, desc->filename, @1.first_line, @1.first_column);
         l->name = (ID *)$1;
         l->args = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | id {
-        INSTR *l = make_node(INSTR, desc->filename, @1.first_line);
+        INSTR *l = make_node(INSTR, desc->filename, @1.first_line, @1.first_column);
         l->name = (ID *)$1;
         l->args = NULL;
         *statements = dynarray_append_ptr(*statements, l);
@@ -332,37 +332,6 @@ program
 
 %%
 
-static const char *yysymbol_name_human(yysymbol_kind_t yysymbol) {
-  switch (yysymbol) {
-    case YYSYMBOL_T_ID:
-      return "identifier";
-    case YYSYMBOL_T_INT:
-      return "integer";
-    case YYSYMBOL_T_STR:
-      return "string";
-    case YYSYMBOL_T_DOLLAR:
-      return "$";
-    case YYSYMBOL_T_INCBIN:
-      return "INCBIN";
-    case YYSYMBOL_T_INCLUDE:
-      return "INCLUDE";
-    case YYSYMBOL_T_NL:
-      return "end of line";
-    case YYSYMBOL_T_SECTION:
-      return "SECTION";
-    case YYSYMBOL_T_REPT:
-      return "REPT";
-    case YYSYMBOL_T_ENDR:
-      return "ENDR";
-    case YYSYMBOL_T_PROFILE:
-      return "PROFILE";
-    case YYSYMBOL_T_ENDPROFILE:
-      return "ENDPROFILE";
-    default:
-      return yysymbol_name(yysymbol);
-  }
-}
-
 static int yyreport_syntax_error(const yypcontext_t *yyctx, void* scanner, dynarray **statements, struct libasm_as_desc_t *desc)
 {
   buffer *errmsg = buffer_init();
@@ -374,32 +343,27 @@ static int yyreport_syntax_error(const yypcontext_t *yyctx, void* scanner, dynar
   if (num_expected < 0) {
     res = num_expected;    // forward errors to yyparse
   } else {
-    for (int i = 0; i < num_expected; ++i)
-      buffer_append(errmsg, "%s %s",
-               i == 0 ? "expected" : " or", yysymbol_name_human(expected[i]));
+    buffer_append(errmsg, "syntax error");
   }
 
   yysymbol_kind_t lookahead = yypcontext_token(yyctx);
   if (lookahead != YYSYMBOL_YYEMPTY) {
     if (lookahead == YYSYMBOL_YYEOF) {
-      buffer_append(errmsg, " until the end of file");
+      buffer_append(errmsg, " at the end of file");
     } else {
       YYLTYPE *loc = yypcontext_location(yyctx);
 
-      // TODO: follow column position in lexer
       char *err_token = get_token_at(desc->source, loc->first_line, loc->first_column, loc->last_column - loc->first_column + 1);
       if (num_expected > 0)
-        /* buffer_append(errmsg, " before '%s'", err_token); */ ;
-      else
-        buffer_append(errmsg, "unexpected %s", yysymbol_name_human(lookahead));
+        buffer_append(errmsg, " near '%s'", err_token);
     }
   }
 
   char *errstr = buffer_dup(errmsg);
   buffer_free(errmsg);
 
-  generic_report_error(ERROR_OUT_LOC | ERROR_OUT_LINE,
-    desc->filename, yylloc.first_line + 1, 0,
+  generic_report_error(ERROR_OUT_LOC | ERROR_OUT_LINE | ERROR_OUT_POS,
+    desc->filename, yylloc.first_line, yylloc.first_column,
     errstr);
   return res;
 }

@@ -4,8 +4,17 @@
 
   #include "parser.tab.h"
 
-  #define YY_USER_ACTION yylloc.first_line = yylloc.last_line = yylineno;
+  #define YY_USER_ACTION \
+    yylloc.first_line = yylloc.last_line = yyextra->line_num;   \
+    yylloc.first_column = yyextra->pos_num;                     \
+    yylloc.last_column = yylloc.first_column + yyleng - 1;
+
   #define YY_DECL int yylex (yyscan_t yyscanner, struct libasm_as_desc_t *desc)
+  #define YY_EXTRA_TYPE struct as_scanner_state *
+
+  #define ADVANCE_POS do {          \
+    yyextra->pos_num += yyleng;     \
+  } while (0)
 %}
 
 %option noyywrap
@@ -39,35 +48,47 @@ intnum  ({decnum}|{hexnum}|{binnum})
 
 %%
 
-{ws}      {}
-{comment}      {}
-^{optws}{newline}     {}
+{ws}      { ADVANCE_POS; }
 
-{newline}     { return T_NL; }
+^{optws}{newline}     {
+  yyextra->line_num++;
+  yyextra->pos_num = 1;
+  return T_NL;
+}
 
-(?i:org)      { return T_ORG; }
-(?i:rept)     { return T_REPT; }
-(?i:endr)     { return T_ENDR; }
-(?i:profile)  { return T_PROFILE; }
-(?i:endprofile) { return T_ENDPROFILE; }
-(?i:equ)      { return T_EQU; }
-(?i:end)      { return T_END; }
-(?i:db|defb)  { return T_DB; }
-(?i:dm|defm)  { return T_DM; }
-(?i:dw|defw)  { return T_DW; }
-(?i:ds|defs)  { return T_DS; }
-(?i:incbin)   { return T_INCBIN; }
-(?i:include)  { return T_INCLUDE; }
-(?i:section)  { return T_SECTION; }
+{newline}     {
+  yyextra->line_num++;
+  yyextra->pos_num = 1;
+  return T_NL;
+}
+
+{comment}             {}
+
+(?i:org)        { ADVANCE_POS; return T_ORG; }
+(?i:rept)       { ADVANCE_POS; return T_REPT; }
+(?i:endr)       { ADVANCE_POS; return T_ENDR; }
+(?i:profile)    { ADVANCE_POS; return T_PROFILE; }
+(?i:endprofile) { ADVANCE_POS; return T_ENDPROFILE; }
+(?i:equ)        { ADVANCE_POS; return T_EQU; }
+(?i:end)        { ADVANCE_POS; return T_END; }
+(?i:db|defb)    { ADVANCE_POS; return T_DB; }
+(?i:dm|defm)    { ADVANCE_POS; return T_DM; }
+(?i:dw|defw)    { ADVANCE_POS; return T_DW; }
+(?i:ds|defs)    { ADVANCE_POS; return T_DS; }
+(?i:incbin)     { ADVANCE_POS; return T_INCBIN; }
+(?i:include)    { ADVANCE_POS; return T_INCLUDE; }
+(?i:section)    { ADVANCE_POS; return T_SECTION; }
 
 
 {id}      {
+  ADVANCE_POS;
   yylval.str = xstrdup(yytext);
   return T_ID;
 }
 
 (?i:af)'  {
   /* special rule for shadow register pair af: don't confuse with string literal */
+  ADVANCE_POS;
   yylval.str = xstrdup(yytext);
   return T_ID;
 }
@@ -78,40 +99,45 @@ intnum  ({decnum}|{hexnum}|{binnum})
   tmp[strlen(tmp) - 1] = '\0';
   yylval.str = tmp + 1;
 
+  ADVANCE_POS;
+
   return T_STR;
 }
 
 {decnum}  {
   yylval.ival = parse_integer(desc, yytext, yyleng, 10, 'd');
+  ADVANCE_POS;
   return T_INT;
 }
 
 {hexnum}  {
   yylval.ival = parse_integer(desc, yytext, yyleng, 16, 'h');
+  ADVANCE_POS;
   return T_INT;
 }
 
 {binnum}  {
   yylval.ival = parse_binary(desc, yytext, yyleng);
+  ADVANCE_POS;
   return T_INT;
 }
 
-"("    { return T_LPAR; }
-")"    { return T_RPAR; }
-"-"    { return T_MINUS; }
-"+"    { return T_PLUS; }
-"*"    { return T_MUL; }
-"/"    { return T_DIV; }
-"&"    { return T_AND; }
-"|"    { return T_OR; }
-"!"    { return T_NOT; }
-","    { return T_COMMA; }
-":"    { return T_COLON; }
-"$"    { return T_DOLLAR; }
-"%"    { return T_PERCENT; }
-"<<"   { return T_SHL; }
-">>"   { return T_SHR; }
+"("    {   ADVANCE_POS; return T_LPAR; }
+")"    {   ADVANCE_POS; return T_RPAR; }
+"-"    {   ADVANCE_POS; return T_MINUS; }
+"+"    {   ADVANCE_POS; return T_PLUS; }
+"*"    {   ADVANCE_POS; return T_MUL; }
+"/"    {   ADVANCE_POS; return T_DIV; }
+"&"    {   ADVANCE_POS; return T_AND; }
+"|"    {   ADVANCE_POS; return T_OR; }
+"!"    {   ADVANCE_POS; return T_NOT; }
+","    {   ADVANCE_POS; return T_COMMA; }
+":"    {   ADVANCE_POS; return T_COLON; }
+"$"    {   ADVANCE_POS; return T_DOLLAR; }
+"%"    {   ADVANCE_POS; return T_PERCENT; }
+"<<"   {   ADVANCE_POS; return T_SHL; }
+">>"   {   ADVANCE_POS; return T_SHR; }
 
-.      { return *yytext; }
+.      {   ADVANCE_POS; return *yytext; }
 
 %%

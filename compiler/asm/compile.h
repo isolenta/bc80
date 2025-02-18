@@ -65,8 +65,8 @@ typedef struct {
 
 #define report_error(ctx, fmt, ...) \
   do { \
-    generic_report_error((ctx)->verbose_error ? (ERROR_OUT_LOC | ERROR_OUT_LINE) : 0, \
-      (ctx)->node->fn, (ctx)->node->line, 0, \
+    generic_report_error((ctx)->verbose_error ? (ERROR_OUT_LOC | ERROR_OUT_LINE | ERROR_OUT_POS) : 0, \
+      (ctx)->node->fn, (ctx)->node->line - 1, (ctx)->node->pos, \
       fmt, ## __VA_ARGS__); \
   } while (0)
 

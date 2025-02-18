@@ -489,6 +489,7 @@ int parse_string(struct libasm_as_desc_t *desc, dynarray **statements) {
   yyscan_t scanner;
   int result;
   char *data;
+  struct as_scanner_state sstate;
 
   g_includeopts = desc->includeopts;
 
@@ -500,7 +501,11 @@ int parse_string(struct libasm_as_desc_t *desc, dynarray **statements) {
   data[len] = '\n';
   data[len + 1] = '\0';
 
+  sstate.line_num = 1;
+  sstate.pos_num = 1;
+
   yylex_init(&scanner);
+  yyset_extra(&sstate, scanner);
   buffer = yy_scan_string(data, scanner);
   result = yyparse(scanner, statements, desc);
   yy_delete_buffer(buffer, scanner);
@@ -568,7 +573,7 @@ void parse_print(dynarray *statements) {
   }
 }
 
-int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *filename, int line) {
+int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *filename) {
   int ret = 0;
   size_t sz;
   FILE *fp = NULL;

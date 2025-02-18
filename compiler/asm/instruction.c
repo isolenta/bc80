@@ -369,7 +369,7 @@ void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
   section_ctx_t *section = get_current_section(ctx);
 
   #define ERR_UNEXPECTED_ARGUMENT(n) do { \
-    report_error(ctx, "[%s@%d] unexpected argument %d", __FILE__, __LINE__, (n)); \
+    report_error(ctx, "unexpected argument %d", (n)); \
   } while(0)
 
   // get instruction ordinal id
