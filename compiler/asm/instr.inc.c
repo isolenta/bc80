@@ -171,6 +171,10 @@ _Static_assert((sizeof(NUM_ARGS) / sizeof(NUM_ARGS[0])) == MAX_MNEMONIC_ID, "NUM
 #define REG_SP    0x3
 #define REG_IX    0x0
 #define REG_IY    0x1
+#define REG_IXH   0x4
+#define REG_IXL   0x5
+#define REG_IYH   0x4
+#define REG_IYL   0x5
 #define COND_NZ   0x0
 #define COND_Z    0x1
 #define COND_NC   0x2

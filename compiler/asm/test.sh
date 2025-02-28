@@ -12,7 +12,7 @@ DIRNAME=`dirname $SCRIPTNAME`
 TMPDIR=/tmp/asmtest
 MY_AS=$1
 MY_DISAS=$2
-EXT_AS=z80asm
+EXT_AS=$DIRNAME/../z80asm
 
 INPUTDIR=${DIRNAME}/tests
 LOGFILE=${DIRNAME}/test.log

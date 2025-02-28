@@ -281,6 +281,17 @@ void disas_render_text(disas_context_t *ctx) {
           break;
         }
 
+        case ARG_HALFINDEX: {
+          static char *regnames_ix[] = {"b", "c", "d", "e", "ixh", "ixl", "<?>", "a"};
+          static char *regnames_iy[] = {"b", "c", "d", "e", "iyh", "iyl", "<?>", "a"};
+
+          assert((node->args[i].extra == 0xdd) || (node->args[i].extra == 0xfd));
+
+          char **regnames = (node->args[i].extra == 0xdd) ? regnames_ix : regnames_iy;
+          column += disas_printf(ctx, "%s", regnames[node->args[i].value % 8]);
+          break;
+        }
+
         default:
           disas_printf(ctx, "<?>");
           column += 3;

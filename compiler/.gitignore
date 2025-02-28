@@ -6,6 +6,8 @@ rcc
 cpp
 asm/test.log
 *.asm
+!asm/tests/*.asm
 README.md
 bin/*
 _build/*
+misc

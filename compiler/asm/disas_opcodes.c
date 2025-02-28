@@ -132,6 +132,10 @@ static int process_ld(disas_context_t *ctx, uint8_t *data) {
       return add_instr2(ctx, LD, 4, mk_arg(ARG_16IMM, data[2], data[3], true), mk_arg(ARG_REGPAIR_I, (data[0] & 0x20) ? REG_IY : REG_IX, 0, false), 20);
     } else if (data[1] == 0xf9) {
       return add_instr2(ctx, LD, 2, mk_arg_SP, mk_arg(ARG_REGPAIR_I, (data[0] & 0x20) ? REG_IY : REG_IX, 0, false), 10);
+    } else if ((data[1] & 0xc7) == 0x06) {
+      return add_instr2(ctx, LD, 3, mk_HALFINDEX((data[1] >> 3) & 0x7, data[0]), mk_arg(ARG_8IMM, data[2], 0, false), 11);
+    } else if ((data[1] & 0xc0) == 0x40) {
+      return add_instr2(ctx, LD, 2, mk_HALFINDEX((data[1] >> 3) & 0x7, data[0]), mk_HALFINDEX(data[1] & 0x7, data[0]), 8);
     }
   } else if ((data[0] & 0xf8) == 0x70) {
     return add_instr2(ctx, LD, 1, mk_arg_HL_REF, mk_GPR(data[0] & 0x7), 7);
@@ -312,8 +316,29 @@ static int process_arithmetic(disas_context_t *ctx, uint8_t *data) {
     return add_instr1(ctx, DEC, 3, mk_arg(ARG_INDEX, data[0] & 0x20, data[2], true), 23);
   } else if ((data[0] & 0xcf) == 0x0b) {
     return add_instr1(ctx, DEC, 1, mk_arg(ARG_REGPAIR_Q, (data[0] >> 4) & 0x3, 0, false), 6);
-  } else if (((data[0] == 0xdd) || (data[0] == 0xfd)) && (data[1] == 0x2b)) {
-    return add_instr1(ctx, DEC, 2, mk_arg(ARG_REGPAIR_I, (data[0] & 0x20) ? REG_IY : REG_IX, 0, false), 10);
+  } else if ((data[0] == 0xdd) || (data[0] == 0xfd)) {
+    if (data[1] == 0x2b)
+      return add_instr1(ctx, DEC, 2, mk_arg(ARG_REGPAIR_I, (data[0] & 0x20) ? REG_IY : REG_IX, 0, false), 10);
+    else if ((data[1] & 0xf8) == 0x80)
+      return add_instr2(ctx, ADD, 2, mk_arg_A, mk_HALFINDEX(data[1] & 0x7, data[0]), 8);
+    else if ((data[1] & 0xf8) == 0x88)
+      return add_instr2(ctx, ADC, 2, mk_arg_A, mk_HALFINDEX(data[1] & 0x7, data[0]), 8);
+    else if ((data[1] & 0xf8) == 0x90)
+      return add_instr1(ctx, SUB, 2, mk_HALFINDEX(data[1] & 0x7, data[0]), 8);
+    else if ((data[1] & 0xf8) == 0x98)
+      return add_instr2(ctx, SBC, 2, mk_arg_A, mk_HALFINDEX(data[1] & 0x7, data[0]), 8);
+    else if ((data[1] & 0xf8) == 0xa0)
+      return add_instr1(ctx, AND, 2, mk_HALFINDEX(data[1] & 0x7, data[0]), 8);
+    else if ((data[1] & 0xf8) == 0xa8)
+      return add_instr1(ctx, XOR, 2, mk_HALFINDEX(data[1] & 0x7, data[0]), 8);
+    else if ((data[1] & 0xf8) == 0xb0)
+      return add_instr1(ctx, OR, 2, mk_HALFINDEX(data[1] & 0x7, data[0]), 8);
+    else if ((data[1] & 0xf8) == 0xb8)
+      return add_instr1(ctx, CP, 2, mk_HALFINDEX(data[1] & 0x7, data[0]), 8);
+    else if ((data[1] & 0xc7) == 0x04)
+      return add_instr1(ctx, INC, 2, mk_HALFINDEX((data[1] >> 3) & 0x7, data[0]), 8);
+    else if ((data[1] & 0xc7) == 0x05)
+      return add_instr1(ctx, DEC, 2, mk_HALFINDEX((data[1] >> 3) & 0x7, data[0]), 8);
   } else if (data[0] == 0x27) {
     return add_instr0(ctx, DAA, 1, 4);
   } else if (data[0] == 0x2f) {

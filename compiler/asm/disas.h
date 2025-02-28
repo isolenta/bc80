@@ -95,6 +95,10 @@ typedef enum {
 #define REG_SP    0x3
 #define REG_IX    0x0
 #define REG_IY    0x1
+#define REG_IXH   0x4
+#define REG_IXL   0x5
+#define REG_IYH   0x4
+#define REG_IYL   0x5
 #define COND_NZ   0x0
 #define COND_Z    0x1
 #define COND_NC   0x2
@@ -186,3 +190,4 @@ extern char *MnemonicStrings[];
 #define mk_arg_I mk_arg(ARG_INTERRUPT, 0, 0, false)
 #define mk_arg_R mk_arg(ARG_REFRESH, 0, 0, false)
 #define mk_GPR(_gpr_) mk_arg(ARG_8GPR, _gpr_, 0, false)
+#define mk_HALFINDEX(_r_, _pfx_) mk_arg(ARG_HALFINDEX, _r_, _pfx_, false)
