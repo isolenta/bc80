@@ -70,6 +70,7 @@ intnum  ({decnum}|{hexnum}|{binnum})
 (?i:profile)    { ADVANCE_POS; return T_PROFILE; }
 (?i:endprofile) { ADVANCE_POS; return T_ENDPROFILE; }
 (?i:equ)        { ADVANCE_POS; return T_EQU; }
+"="             { ADVANCE_POS; return T_EQU; }
 (?i:end)        { ADVANCE_POS; return T_END; }
 (?i:db|defb)    { ADVANCE_POS; return T_DB; }
 (?i:dm|defm)    { ADVANCE_POS; return T_DM; }
