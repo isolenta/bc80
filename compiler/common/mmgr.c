@@ -111,6 +111,8 @@ void xfree_(void *ptr, const char *file, int line) {
   (void)file;
   (void)line;
 
+  return; // TODO: figure out with allocator issues
+
   if (ptr == NULL || ptr == XMMGR_DUMMY_PTR)
     return;
 

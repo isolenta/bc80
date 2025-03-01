@@ -23,6 +23,8 @@ static void print_usage(char *cmd) {
          "  -o filename     name of target file (will use input file name if omitted)\n"
          "  -Ipath          add directory to include path list (for preprocessor #include directive search)\n"
          "  -Dkey[=value]   define symbol for preprocessor\n"
+         "  --profile[=all] enable profiling for blocks between global labels (or all labels if 'all' specified)\n"
+         "  --profile-data  if profiling enabled, show information for data blocks (e.g. DB with labels)\n"
          "  -t target       set output file target type. Can be one of:\n"
          "     raw (default)       raw binary rendered from absolute offset specified by ORG directive.\n"
          "                         Source file can contain only single section.\n"
@@ -61,7 +63,19 @@ static void warning_cb(int flags, const char *message, const char *filename, int
   fprintf(stderr, " \x1b[95mwarning:\x1b[0m \x1b[97m%s\x1b[0m\n", message);
 }
 
+static void info_cb(int flags, const char *message, const char *filename, int line, int pos) {
+  fprintf(stderr, "\x1b[97m%s\x1b[0m\n", message);
+}
+
 static jmp_buf error_env;
+
+enum {
+  LONGOPT_SNA_GENERIC = 1,
+  LONGOPT_SNA_PC,
+  LONGOPT_SNA_RAMTOP,
+  LONGOPT_PROFILE,
+  LONGOPT_PROFILE_DATA,
+};
 
 int main(int argc, char **argv) {
   int optflag;
@@ -74,6 +88,8 @@ int main(int argc, char **argv) {
   int sna_generic = 0;
   int sna_pc_addr = -1;
   int sna_ramtop = -1;
+  int profile_mode = 0;
+  bool profile_data = false;
   int ret;
   size_t filesize, sret;
   FILE *fin = NULL;
@@ -89,16 +105,16 @@ int main(int argc, char **argv) {
 
   opterr = 0;
 
-#define LONGOPT_SNA_GENERIC 1
-#define LONGOPT_SNA_PC 2
-#define LONGOPT_SNA_RAMTOP 3
-
   const struct option long_options[] = {
     {"sna-generic",  no_argument,       &sna_generic, LONGOPT_SNA_GENERIC},
     {"sna-pc",       required_argument, 0,            LONGOPT_SNA_PC},
     {"sna-ramtop",   required_argument, 0,            LONGOPT_SNA_RAMTOP},
+    {"profile",      optional_argument, 0,            LONGOPT_PROFILE},
+    {"profile-data", no_argument,       0,            LONGOPT_PROFILE_DATA},
     {0, 0, 0, 0}
   };
+
+  profile_mode = PROFILE_NONE;
 
   while ((optflag = getopt_long(argc, argv, "hD:I:o:t:", long_options, NULL)) != -1) {
     switch (optflag) {
@@ -118,6 +134,21 @@ int main(int argc, char **argv) {
           fprintf(stderr, "can't parse value for ramtop address: %s\n", optarg);
           return 1;
         }
+        break;
+
+      case LONGOPT_PROFILE:
+        if (optarg == NULL)
+          profile_mode = PROFILE_GLOBALS;
+        else if (strcmp(optarg, "all") == 0)
+          profile_mode = PROFILE_ALL;
+        else {
+          fprintf(stderr, "invalid profile mode: %s\n", optarg);
+          return 1;
+        }
+        break;
+
+      case LONGOPT_PROFILE_DATA:
+        profile_data = true;
         break;
 
       case 'D': {
@@ -215,13 +246,15 @@ int main(int argc, char **argv) {
   desc.sna_ramtop = sna_ramtop;
   desc.dest = &destination;
   desc.dest_size = &dest_size;
+  desc.profile_mode = profile_mode;
+  desc.profile_data = profile_data;
 
   ret = setjmp(error_env);
   if (ret != 0)
     // returning from longjmp (error handler)
     goto out;
 
-  set_error_context(error_cb, warning_cb, &error_env);
+  set_error_context(error_cb, warning_cb, info_cb, &error_env);
 
   ret = libasm_as(&desc);
 

@@ -18,10 +18,14 @@ typedef int (*error_callback_type) (int flags, const char *message, const char *
 // the same as error_callback_type but for non-critical warnings
 typedef void (*warning_callback_type) (int flags, const char *message, const char *filename, int line, int pos);
 
-extern void set_error_context(error_callback_type error_cb, warning_callback_type warning_cb, jmp_buf *error_env);
+// the same as error_callback_type but for information messages
+typedef void (*info_callback_type) (int flags, const char *message, const char *filename, int line, int pos);
+
+extern void set_error_context(error_callback_type error_cb, warning_callback_type warning_cb, info_callback_type info_cb, jmp_buf *error_env);
 
 extern void generic_report_error(int flags, const char *filename, int line, int pos, char *fmt, ...);
 extern void generic_report_warning(int flags, const char *filename, int line, int pos, char *fmt, ...);
+extern void generic_report_info(int flags, const char *filename, int line, int pos, char *fmt, ...);
 
 #define report_error_noloc(fmt, ...) \
   generic_report_error( 0, NULL, 0, 0, fmt, ## __VA_ARGS__);

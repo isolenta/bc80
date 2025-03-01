@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
     // returning from longjmp (error handler)
     goto out;
   }
-  set_error_context(error_cb, warning_cb, &rcc_env);
+  set_error_context(error_cb, warning_cb, NULL, &rcc_env);
 
   memset(&context, 0, sizeof(context));
 

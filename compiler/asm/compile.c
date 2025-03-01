@@ -7,6 +7,45 @@
 #include "common/buffer.h"
 #include "common/hashmap.h"
 
+static void profile_end(compile_ctx_t *ctx, bool fail_ok, char *next_label, bool profile_data) {
+  if (!ctx->in_profile) {
+    if (fail_ok)
+      return;
+
+    report_error(ctx, "found ENDPROFILE directive outside of PROFILE block");
+  }
+
+  char *displayed_name;
+
+  if (next_label) {
+    displayed_name = bsprintf("%s -> %s", ctx->current_profile_name, next_label);
+  } else {
+    displayed_name = ctx->current_profile_name;
+  }
+
+  if (profile_data) {
+    if (ctx->current_profile_data.cycles == 0 && ctx->current_profile_data.bytes > 0)
+      report_info(ctx, "\x1b[93mData block\x1b[97m '%s': %d bytes",
+        ctx->current_profile_name,
+        ctx->current_profile_data.bytes);
+  }
+
+  if (ctx->current_profile_data.cycles != 0)
+    report_info(ctx, "\x1b[96mCode block\x1b[97m '%s': %d bytes, %d cycles",
+      displayed_name,
+      ctx->current_profile_data.bytes,
+      ctx->current_profile_data.cycles);
+
+  xfree(ctx->current_profile_name);
+  ctx->in_profile = false;
+}
+
+static void profile_start(compile_ctx_t *ctx, char *name) {
+  memset(&ctx->current_profile_data, 0, sizeof(ctx->current_profile_data));
+  ctx->current_profile_name = name;
+  ctx->in_profile = true;
+}
+
 static parse_node *eval_literal(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar) {
   assert(node->type == NODE_LITERAL);
 
@@ -520,6 +559,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
 
     if (node->type == NODE_LABEL) {
       char *label_name;
+      bool label_is_local = false;
 
       section_ctx_t *section = get_current_section(&compile_ctx);
 
@@ -533,6 +573,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
         if (compile_ctx.curr_global_label == NULL)
           report_error(&compile_ctx, "can't assign local label '%s' without a global one", label_name);
 
+        label_is_local = true;
         label_name = bsprintf("%s%s", compile_ctx.curr_global_label, label_name);
       } else {
         // label is not local => remember as scope label
@@ -558,7 +599,16 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
       }
 
       hashmap_search(compile_ctx.symtab, localized_name, HASHMAP_INSERT, cur_offset);
-    }
+
+      if (desc->profile_mode != PROFILE_NONE) {
+        if ((desc->profile_mode == PROFILE_ALL) ||
+          ((desc->profile_mode == PROFILE_GLOBALS) && !label_is_local))
+        {
+          profile_end(&compile_ctx, true, label_name, desc->profile_data);
+          profile_start(&compile_ctx, xstrdup(label_name));
+        }
+      }
+    } // (node->type == NODE_LABEL)
 
     if (node->type == NODE_INSTR) {
       INSTR *instr = (INSTR *)node;
@@ -631,32 +681,30 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse) {
     }
 
     if (node->type == NODE_PROFILE) {
-      PROFILE *pr = (PROFILE *)node;
+      if (desc->profile_mode != PROFILE_NONE) {
+        report_warning(&compile_ctx, "PROFILE directive ignored because '--profile' option was specified");
+      } else {
+        PROFILE *pr = (PROFILE *)node;
 
-      if (compile_ctx.in_profile)
-        report_error(&compile_ctx, "nested PROFILE blocks are not allowed");
+        LITERAL *name = pr->name;
+        if (name->kind != STR)
+          report_error(&compile_ctx, "PROFILE name must a string");
 
-      LITERAL *name = pr->name;
-      if (name->kind != STR)
-        report_error(&compile_ctx, "PROFILE name must a string");
+        if (compile_ctx.in_profile)
+          report_error(&compile_ctx, "nested PROFILE blocks are not allowed");
 
-      memset(&compile_ctx.current_profile_data, 0, sizeof(compile_ctx.current_profile_data));
-      compile_ctx.current_profile_name = xstrdup(name->strval);
-      compile_ctx.in_profile = true;
+        profile_start(&compile_ctx, xstrdup(name->strval));
+      }
     }
 
-    if (node->type == NODE_ENDPROFILE) {
-      if (!compile_ctx.in_profile)
-        report_error(&compile_ctx, "found ENDPROFILE directive outside of PROFILE block");
-
-      report_warning(&compile_ctx, "Profiling for '%s': %d bytes, %d cycles",
-        compile_ctx.current_profile_name,
-        compile_ctx.current_profile_data.bytes,
-        compile_ctx.current_profile_data.cycles);
-
-      xfree(compile_ctx.current_profile_name);
-      compile_ctx.in_profile = false;
+    if ((node->type == NODE_ENDPROFILE) && (desc->profile_mode == PROFILE_NONE)) {
+      profile_end(&compile_ctx, false, NULL, true);
     }
+  }
+
+  if (desc->profile_mode != PROFILE_NONE) {
+    // flush the last profile block if any
+    profile_end(&compile_ctx, true, "EOF", desc->profile_data);
   }
 
   // ==================================================================================================
