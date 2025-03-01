@@ -51,8 +51,8 @@ void render_byte(compile_ctx_t *ctx, char b, int cycles) {
   section->curr_pc += 1;
 
   if (ctx->in_profile) {
-    ctx->current_profile_data.cycles += cycles;
-    ctx->current_profile_data.bytes += 1;
+    ctx->current_profile.cycles += cycles;
+    ctx->current_profile.bytes += 1;
   }
 }
 
@@ -63,8 +63,8 @@ void render_2bytes(compile_ctx_t *ctx, char b1, char b2, int cycles) {
   section->curr_pc += 2;
 
   if (ctx->in_profile) {
-    ctx->current_profile_data.cycles += cycles;
-    ctx->current_profile_data.bytes += 2;
+    ctx->current_profile.cycles += cycles;
+    ctx->current_profile.bytes += 2;
   }
 }
 
@@ -76,8 +76,8 @@ void render_3bytes(compile_ctx_t *ctx, char b1, char b2, char b3, int cycles) {
   section->curr_pc += 3;
 
   if (ctx->in_profile) {
-    ctx->current_profile_data.cycles += cycles;
-    ctx->current_profile_data.bytes += 3;
+    ctx->current_profile.cycles += cycles;
+    ctx->current_profile.bytes += 3;
   }
 }
 
@@ -90,8 +90,8 @@ void render_4bytes(compile_ctx_t *ctx, char b1, char b2, char b3, char b4, int c
   section->curr_pc += 4;
 
   if (ctx->in_profile) {
-    ctx->current_profile_data.cycles += cycles;
-    ctx->current_profile_data.bytes += 4;
+    ctx->current_profile.cycles += cycles;
+    ctx->current_profile.bytes += 4;
   }
 }
 
@@ -103,7 +103,7 @@ void render_word(compile_ctx_t *ctx, int ival) {
   section->curr_pc += 2;
 
   if (ctx->in_profile) {
-    ctx->current_profile_data.bytes += 2;
+    ctx->current_profile.bytes += 2;
   }
 }
 
@@ -113,7 +113,7 @@ void render_bytes(compile_ctx_t *ctx, char *buf, uint32_t len) {
   section->curr_pc += len;
 
   if (ctx->in_profile) {
-    ctx->current_profile_data.bytes += len;
+    ctx->current_profile.bytes += len;
   }
 }
 
@@ -128,7 +128,7 @@ void render_block(compile_ctx_t *ctx, char filler, uint32_t len) {
   section->curr_pc += len;
 
   if (ctx->in_profile) {
-    ctx->current_profile_data.bytes += len;
+    ctx->current_profile.bytes += len;
   }
 }
 
@@ -154,7 +154,7 @@ void render_from_file(compile_ctx_t *ctx, char *filename, dynarray *includeopts)
   section->curr_pc += size;
 
   if (ctx->in_profile) {
-    ctx->current_profile_data.bytes += size;
+    ctx->current_profile.bytes += size;
   }
 }
 

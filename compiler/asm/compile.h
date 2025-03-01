@@ -49,7 +49,7 @@ typedef struct {
   int lookup_rept_iter_id;
 
   bool in_profile;
-  profile_data_t current_profile_data;
+  profile_data_t current_profile;
   char *current_profile_name;
 } compile_ctx_t;
 

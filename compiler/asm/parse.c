@@ -575,7 +575,7 @@ void parse_print(dynarray *statements) {
 
 int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *filename) {
   int ret = 0;
-  size_t sz;
+  size_t file_size, sret;
   FILE *fp = NULL;
   char *path;
   char *source = NULL;
@@ -587,27 +587,26 @@ int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *fi
     goto out;
   }
 
-  sz = fs_file_size(path);
+  file_size = fs_file_size(path);
   fp = fopen(path, "r");
   if (!fp) {
     report_error_noloc("%s: %s", path, strerror(errno));
     goto out;
   }
 
-  source = (char *)xmalloc(sz);
-
-  sz = fread(source, sz, 1, fp);
-  if (sz != 1) {
+  source = (char *)xmalloc(file_size + 1);
+  sret = fread(source, file_size, 1, fp);
+  if (sret != 1) {
     report_error_noloc("%s: %s", path, strerror(errno));
     goto out;
   }
 
-  if (ret == 0) {
-    memcpy(&desc_subtree, desc, sizeof(struct libasm_as_desc_t));
-    desc_subtree.source = source;
-    desc_subtree.filename = filename;
-    ret = parse_string(&desc_subtree, statements);
-  }
+  source[file_size] = 0;
+
+  memcpy(&desc_subtree, desc, sizeof(struct libasm_as_desc_t));
+  desc_subtree.source = source;
+  desc_subtree.filename = filename;
+  ret = parse_string(&desc_subtree, statements);
 
 out:
   if (source)

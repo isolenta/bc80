@@ -111,8 +111,6 @@ void xfree_(void *ptr, const char *file, int line) {
   (void)file;
   (void)line;
 
-  return; // TODO: figure out with allocator issues
-
   if (ptr == NULL || ptr == XMMGR_DUMMY_PTR)
     return;
 
@@ -133,7 +131,7 @@ char *xstrdup_(const char *str, const char *file, int line) {
   if (str == NULL)
     return NULL;
 
-  char *newstr = xmalloc_(strlen(str), "", file, line);
+  char *newstr = xmalloc_(strlen(str) + 1, "", file, line);
   strcpy(newstr, str);
   return newstr;
 }

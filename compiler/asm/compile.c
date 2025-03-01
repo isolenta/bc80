@@ -24,24 +24,24 @@ static void profile_end(compile_ctx_t *ctx, bool fail_ok, char *next_label, bool
   }
 
   if (profile_data) {
-    if (ctx->current_profile_data.cycles == 0 && ctx->current_profile_data.bytes > 0)
+    if (ctx->current_profile.cycles == 0 && ctx->current_profile.bytes > 0)
       report_info(ctx, "\x1b[93mData block\x1b[97m '%s': %d bytes",
         ctx->current_profile_name,
-        ctx->current_profile_data.bytes);
+        ctx->current_profile.bytes);
   }
 
-  if (ctx->current_profile_data.cycles != 0)
+  if (ctx->current_profile.cycles != 0)
     report_info(ctx, "\x1b[96mCode block\x1b[97m '%s': %d bytes, %d cycles",
       displayed_name,
-      ctx->current_profile_data.bytes,
-      ctx->current_profile_data.cycles);
+      ctx->current_profile.bytes,
+      ctx->current_profile.cycles);
 
   xfree(ctx->current_profile_name);
   ctx->in_profile = false;
 }
 
 static void profile_start(compile_ctx_t *ctx, char *name) {
-  memset(&ctx->current_profile_data, 0, sizeof(ctx->current_profile_data));
+  memset(&(ctx->current_profile), 0, sizeof(ctx->current_profile));
   ctx->current_profile_name = name;
   ctx->in_profile = true;
 }
