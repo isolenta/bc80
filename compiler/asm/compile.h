@@ -87,7 +87,7 @@ typedef struct {
 
 extern parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar, bool *literal_evals);
 extern int compile(struct libasm_as_desc_t *desc, dynarray *parse);
-extern void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args);
+extern void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args);
 extern void register_fwd_lookup(compile_ctx_t *ctx,
                           parse_node *unresolved_node,
                           uint32_t pos,

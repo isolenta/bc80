@@ -3,6 +3,7 @@
 
 set(ASM_C_SOURCES
   compile.c
+  expressions.c
   disas_opcodes.c
   disas_print.c
   instruction.c

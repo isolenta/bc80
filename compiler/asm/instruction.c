@@ -388,7 +388,7 @@ static bool get_arg_rstaddr(parse_node *node, int *rstcode) {
   return false;
 }
 
-void compile_instruction(compile_ctx_t *ctx, char *name, LIST *args) {
+void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
   section_ctx_t *section = get_current_section(ctx);
 
   #define ERR_UNEXPECTED_ARGUMENT(n) do { \
