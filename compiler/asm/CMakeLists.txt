@@ -4,6 +4,7 @@
 set(ASM_C_SOURCES
   compile.c
   expressions.c
+  symtab.c
   disas_opcodes.c
   disas_print.c
   instruction.c

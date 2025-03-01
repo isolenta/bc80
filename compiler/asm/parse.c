@@ -258,6 +258,10 @@ void print_node(parse_node *node) {
       LITERAL *count = r->count;
       printf("(REPT ");
       print_node((parse_node *)count);
+      if (r->var) {
+        printf(" ");
+        print_node((parse_node *)r->var);
+      }
       printf(") ");
       break;
     }
@@ -457,6 +461,8 @@ static void node_to_string_recurse(parse_node *node, buffer *buf) {
     case NODE_REPT: {
       REPT *r = (REPT *)node;
       buffer_append(buf, "REPT %d ", r->count);
+      if (r->var)
+        buffer_append(buf, "%s ", r->var->name);
       break;
     }
     case NODE_ENDR:

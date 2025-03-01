@@ -48,38 +48,9 @@ static void profile_start(compile_ctx_t *ctx, char *name)
   ctx->in_profile = true;
 }
 
-static hashmap *make_symtab(hashmap *defineopts)
-{
-  hashmap_scan *scan = NULL;
-  hashmap_entry *entry = NULL;
-  hashmap *symtab = hashmap_create(1024, "symtab");
-
-  if (!defineopts)
-    return symtab;
-
-  scan = hashmap_scan_init(defineopts);
-  while ((entry = hashmap_scan_next(scan)) != NULL) {
-    LITERAL *l = make_node_internal(LITERAL);
-
-    if (parse_any_integer(entry->value, &l->ival)) {
-      l->kind = INT;
-    } else {
-      l->kind = STR;
-      l->strval = xstrdup(entry->value);
-    }
-
-    hashmap_search(symtab, entry->key, HASHMAP_INSERT, l);
-  }
-
-  return symtab;
-}
-
 static void compile_equ(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, EQU *equ)
 {
-  hashmap_search(ctx->symtab,
-    equ->name->name,
-    HASHMAP_INSERT,
-    expr_eval(ctx, (parse_node *)equ->value, false, NULL));
+  add_sym_variable_node(ctx, equ->name->name, expr_eval(ctx, (parse_node *)equ->value, false, NULL));
 }
 
 static void compile_section(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, SECTION *section)
@@ -296,13 +267,9 @@ static void compile_label(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, LAB
   }
 
   // error out for label duplicates
-  void *node = hashmap_search(ctx->symtab, label_name, HASHMAP_FIND, NULL);
+  void *node = get_sym_variable(ctx, label_name, true);
   if (node != NULL)
     report_error(ctx, "duplicate label '%s'", label_name);
-
-  LITERAL *cur_offset = make_node_internal(LITERAL);
-  cur_offset->kind = INT;
-  cur_offset->ival = section->curr_pc;
 
   // if we're inside REPT block, localize label name by adding suffix
   // 'labelname' => 'labelname#n' where n is iteration index.
@@ -313,7 +280,7 @@ static void compile_label(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, LAB
     localized_name = bsprintf("%s#%d", label->name->name, ctx->curr_rept->counter);
   }
 
-  hashmap_search(ctx->symtab, localized_name, HASHMAP_INSERT, cur_offset);
+  add_sym_variable_integer(ctx, localized_name, section->curr_pc);
 
   if (desc->profile_mode != PROFILE_NONE) {
     if ((desc->profile_mode == PROFILE_ALL) ||
@@ -330,15 +297,6 @@ static void compile_instr(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, INS
   dynarray_cell *dc = NULL;
   ID *name_id = (ID *)instr->name;
   char *name = name_id->name;
-
-  // try to substitute instruction name from symtab
-  LITERAL *l = hashmap_search(ctx->symtab, name, HASHMAP_FIND, NULL);
-  if (l != NULL) {
-    if (l->kind == STR)
-      name = l->strval;
-    else
-      report_error(ctx, "instruction name must be a string identifier");
-  }
 
   // evaluate all instruction arguments
   if (instr->args && instr->args->list) {
@@ -377,6 +335,15 @@ static void compile_rept(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, REPT
   ctx->curr_rept->count = count->ival;
   ctx->curr_rept->counter = 0;
   ctx->curr_rept->start_iter = loop_iter;
+  ctx->curr_rept->var = rept->var;
+
+  if (rept->var) {
+    void *existing_var = get_sym_variable(ctx, rept->var->name, true);
+    if (existing_var != NULL)
+      report_error(ctx, "can't redefine variable %s in REPT block", rept->var->name);
+
+    add_sym_variable_integer(ctx, rept->var->name, ctx->curr_rept->counter);
+  }
 }
 
 static bool compile_endr(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, ENDR *endr, int *loop_iter)
@@ -387,13 +354,23 @@ static bool compile_endr(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, ENDR
   if (ctx->curr_rept->counter < ctx->curr_rept->count - 1) {
     // rewind parse list foreach to first block statement
     ctx->curr_rept->counter++;
+
+    if (ctx->curr_rept->var) {
+      LITERAL *counter_var = get_sym_variable(ctx, ctx->curr_rept->var->name, true);
+      assert(counter_var);
+
+      counter_var->ival = ctx->curr_rept->counter;
+    }
+
     *loop_iter = ctx->curr_rept->start_iter;
     return true;
-  } else {
-    // repitition finished, stop looping and destroy context
-    xfree(ctx->curr_rept);
-    ctx->curr_rept = NULL;
   }
+
+  // repitition finished, stop looping and destroy context
+  if (ctx->curr_rept->var)
+    remove_sym_variable(ctx, ctx->curr_rept->var->name);
+  xfree(ctx->curr_rept);
+  ctx->curr_rept = NULL;
 
   return false;
 }

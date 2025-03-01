@@ -153,6 +153,7 @@ typedef struct {
   uint32_t pos;
   const char *fn;
   LITERAL *count;
+  ID *var;
 } REPT;
 
 typedef struct {

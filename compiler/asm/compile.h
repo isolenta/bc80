@@ -23,6 +23,7 @@ typedef struct {
   int start_iter;
   int count;
   int counter;
+  ID *var;
 } rept_ctx_t;
 
 typedef struct {
@@ -94,3 +95,11 @@ extern void register_fwd_lookup(compile_ctx_t *ctx,
                           int nbytes,
                           bool relative,
                           uint32_t instr_pc);
+
+extern hashmap *make_symtab(hashmap *defineopts);
+extern parse_node *add_sym_variable_node(compile_ctx_t *ctx, const char *name, parse_node *value);
+extern parse_node *add_sym_variable_integer(compile_ctx_t *ctx, const char *name, int ival);
+extern LITERAL *get_sym_variable(compile_ctx_t *ctx, const char *name, bool missing_ok);
+extern void remove_sym_variable(compile_ctx_t *ctx, const char *name);
+
+extern bool is_reserved_ident(const char *id);

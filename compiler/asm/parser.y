@@ -236,6 +236,13 @@ stmt
       | T_REPT integer {
         REPT *l = make_node(REPT, desc->filename, @1.first_line, @1.first_column);
         l->count = (LITERAL *)$2;
+        l->var = NULL;
+        *statements = dynarray_append_ptr(*statements, l);
+      }
+      | T_REPT integer T_COMMA id {
+        REPT *l = make_node(REPT, desc->filename, @1.first_line, @1.first_column);
+        l->count = (LITERAL *)$2;
+        l->var = (ID *)$4;
         *statements = dynarray_append_ptr(*statements, l);
       }
       | T_ENDR {
