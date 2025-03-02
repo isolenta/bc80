@@ -327,15 +327,15 @@ static void compile_instr(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, INS
 
 static void compile_rept(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, REPT *rept, int loop_iter)
 {
-  LITERAL *count = rept->count;
-  if (count->kind != INT)
-    report_error(ctx, "REPT count must have integer type");
+  LITERAL *count_value = (LITERAL *)expr_eval(ctx, (parse_node *)rept->count_expr, true, NULL);
+  if (!IS_INT_LITERAL(count_value))
+    report_error(ctx, "can't evaluate REPT argument as integer value");
 
   if (ctx->curr_rept != NULL)
     report_error(ctx, "nested REPT blocks are not allowed");
 
   ctx->curr_rept = (rept_ctx_t *)xmalloc(sizeof(rept_ctx_t));
-  ctx->curr_rept->count = count->ival;
+  ctx->curr_rept->count = count_value->ival;
   ctx->curr_rept->counter = 0;
   ctx->curr_rept->start_iter = loop_iter;
   ctx->curr_rept->var = rept->var;

@@ -152,7 +152,7 @@ typedef struct {
   uint32_t line;
   uint32_t pos;
   const char *fn;
-  LITERAL *count;
+  EXPR *count_expr;
   ID *var;
 } REPT;
 
