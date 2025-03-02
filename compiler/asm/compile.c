@@ -55,69 +55,72 @@ static void compile_equ(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, EQU *
 
 static void compile_section(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, SECTION *section)
 {
-  // syntax: section name[,address[,filler]]
+  // syntax: section name [base=addr, fill=val]
+
+  dynarray_cell *dc = NULL;
   section_ctx_t *curr_section = get_current_section(ctx);
-  dynarray_cell *dc;
-  bool found = false;
 
-  if (dynarray_length(section->args->list) == 0)
-    report_error(ctx, "'section' directive requires at least one argument");
+  assert(section->name->kind == STR);
 
-  LITERAL *l = (LITERAL *)expr_eval(ctx, dinitial(section->args->list), true, NULL);
-  if (l->kind != STR)
-    report_error(ctx, "section name must be a string");
-
-  char *name = l->strval;
+  char *name = section->name->strval;
 
   // requesting current section is noop
-  if (strcmp(name, curr_section->name) != 0) {
-    // check section existance
-    foreach (dc, ctx->sections) {
-      section_ctx_t *section = (section_ctx_t *)dfirst(dc);
+  if (strcmp(name, curr_section->name) == 0)
+    return;
 
-      if (strcmp(name, section->name) == 0) {
-        // requesting existing section is error
-        bool old_v = ctx->verbose_error;
-        ctx->verbose_error = false;
-        report_error(ctx, "section '%s' already exists", name);
-        ctx->verbose_error = old_v;
+  // check section existance
+  foreach (dc, ctx->sections) {
+    section_ctx_t *section = (section_ctx_t *)dfirst(dc);
+
+    if (strcmp(name, section->name) == 0)
+      report_error(ctx, "section '%s' already exists", name);
+  }
+
+  // section parameters defaults
+  int address = curr_section->curr_pc;  // new section seamless continues the current one
+  uint8_t fill = 0;                     // filler is zero byte
+
+  if (section->params) {
+    foreach(dc, section->params->list) {
+      EQU *equ = (EQU *)dfirst(dc);
+      assert(equ->type == NODE_EQU);
+
+      if (strcasecmp(equ->name->name, "base") == 0) {
+        LITERAL *base_value = (LITERAL *)expr_eval(ctx, (parse_node *)equ->value, true, NULL);
+        if (!IS_INT_LITERAL(base_value))
+          report_error(ctx, "can't evaluate 'base' parameter as integer value");
+
+        address = base_value->ival;
+        if (address < 0 || address > 0xffff)
+          report_error(ctx, "'base' parameter value %d is out of bounds (0..65536)", address);
+      } else if (strcasecmp(equ->name->name, "fill") == 0) {
+        LITERAL *fill_value = (LITERAL *)expr_eval(ctx, (parse_node *)equ->value, true, NULL);
+        if (!IS_INT_LITERAL(fill_value))
+          report_error(ctx, "can't evaluate 'fill' parameter as integer value");
+
+        fill = (uint8_t)(fill_value->ival & 0xff);
+
+        if (fill_value->ival & (int)~0xff)
+          report_warning(ctx, "cutting down 'fill' parameter value 0x%02x to 0x%02x",
+            fill_value->ival, fill);
+      } else {
+        report_warning(ctx, "ignore unknown section parameter '%s'", equ->name->name);
       }
     }
-
-    // by default new section seamless continues the current one
-    int address = curr_section->curr_pc;
-
-    if (dynarray_length(section->args->list) > 1) {
-      l = (LITERAL *)expr_eval(ctx, dfirst(dynarray_nth_cell(section->args->list, 1)), true, NULL);
-      if (l->kind != INT)
-        report_error(ctx, "section address must be an integer");
-
-      address = l->ival;
-    }
-
-    // by default new section's filler is zero
-    uint8_t filler = 0;
-    if (dynarray_length(section->args->list) > 2) {
-      l = (LITERAL *)expr_eval(ctx, dfirst(dynarray_nth_cell(section->args->list, 2)), true, NULL);
-      if (l->kind != INT)
-        report_error(ctx, "section filler must be an integer");
-
-      filler = (uint8_t)(l->ival & 0xff);
-    }
-
-    // create a new section
-    section_ctx_t *new_sect = (section_ctx_t *)xmalloc(sizeof(section_ctx_t));
-
-    new_sect->start = new_sect->curr_pc = address;
-    new_sect->filler = filler;
-    new_sect->name = xstrdup(name);
-    new_sect->content = buffer_init();
-
-    ctx->sections = dynarray_append_ptr(ctx->sections, new_sect);
-
-    // make it current
-    ctx->curr_section_id = dynarray_length(ctx->sections) - 1;
   }
+
+  // create a new section
+  section_ctx_t *new_sect = (section_ctx_t *)xmalloc(sizeof(section_ctx_t));
+
+  new_sect->start = new_sect->curr_pc = address;
+  new_sect->filler = fill;
+  new_sect->name = xstrdup(name);
+  new_sect->content = buffer_init();
+
+  ctx->sections = dynarray_append_ptr(ctx->sections, new_sect);
+
+  // make it current
+  ctx->curr_section_id = dynarray_length(ctx->sections) - 1;
 }
 
 static void compile_org(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, ORG *org)

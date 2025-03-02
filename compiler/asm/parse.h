@@ -185,7 +185,8 @@ typedef struct {
   uint32_t line;
   uint32_t pos;
   const char *fn;
-  LIST *args;
+  LITERAL *name;
+  LIST *params;
 } SECTION;
 
 typedef struct {
@@ -226,6 +227,9 @@ struct as_scanner_state {
   int line_num;
   int pos_num;
 };
+
+#define IS_INT_LITERAL(node) \
+    ((node->type == NODE_LITERAL) && (((LITERAL *)node)->kind == INT))
 
 extern void print_node(parse_node *node);
 extern char *node_to_string(parse_node *node);

@@ -40,7 +40,7 @@
 %token T_DM T_DW T_DS T_INCBIN T_INCLUDE T_NOT T_AND T_OR T_NL T_SECTION T_PERCENT T_SHL T_SHR
 %token T_REPT T_ENDR T_PROFILE T_ENDPROFILE
 
-%type <node> id str integer dollar simple_expr unary_expr expr exprlist
+%type <node> id str integer dollar simple_expr unary_expr expr exprlist keyvalue kvlist
 
 %start program
 
@@ -215,6 +215,29 @@ exprlist
       }
       ;
 
+keyvalue
+      : id T_EQU expr {
+        EQU *equ = make_node(EQU, desc->filename, @1.first_line, @1.first_column);
+        equ->name = (ID *)$1;
+        equ->value = (EXPR *)$3;
+        $$ = (parse_node *)equ;
+      }
+      ;
+
+/* key-value list, i.e.: "key1 = expr1, key2 = expr2, ..."*/
+kvlist
+      : keyvalue {
+        LIST *l = make_node(LIST, desc->filename, @1.first_line, @1.first_column);
+        l->list = NULL;
+        l->list = dynarray_append_ptr(l->list, $1);
+        $$ = (parse_node *)l;
+      }
+      | kvlist T_COMMA keyvalue {
+        LIST *l = (LIST *)$$;
+        l->list = dynarray_append_ptr(l->list, $3);
+      }
+      ;
+
 label
       : id T_COLON {
           LABEL *l = make_node(LABEL, desc->filename, @1.first_line, @1.first_column);
@@ -303,10 +326,17 @@ stmt
         l->values = (LIST *)$2;
         *statements = dynarray_append_ptr(*statements, l);
       }
-      | T_SECTION exprlist {
-        SECTION *l = make_node(SECTION, desc->filename, @1.first_line, @1.first_column);
-        l->args = (LIST *)$2;
-        *statements = dynarray_append_ptr(*statements, l);
+      | T_SECTION str {
+        SECTION *section = make_node(SECTION, desc->filename, @1.first_line, @1.first_column);
+        section->name = (LITERAL *)$2;
+        section->params = NULL;
+        *statements = dynarray_append_ptr(*statements, section);
+      }
+      | T_SECTION str kvlist {
+        SECTION *section = make_node(SECTION, desc->filename, @1.first_line, @1.first_column);
+        section->name = (LITERAL *)$2;
+        section->params = (LIST *)$3;
+        *statements = dynarray_append_ptr(*statements, section);
       }
       | id exprlist {
         INSTR *l = make_node(INSTR, desc->filename, @1.first_line, @1.first_column);
