@@ -20,6 +20,7 @@
 %option noyywrap
 %option reentrant
 %option yylineno
+%x COMMENT
 
 space         [ \t\f]
 newline       [\n\r]
@@ -61,6 +62,22 @@ intnum  ({decnum}|{hexnum}|{binnum})
   yyextra->pos_num = 1;
   return T_NL;
 }
+
+<INITIAL>"/*"             {
+  BEGIN(COMMENT);
+}
+
+<COMMENT>"*/"             {
+  BEGIN(INITIAL);
+}
+
+<COMMENT>\n               {
+  yyextra->line_num++;
+  yyextra->pos_num = 1;
+}
+
+<COMMENT>.                {}
+
 
 {comment}             {}
 
