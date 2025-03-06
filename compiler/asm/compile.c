@@ -132,6 +132,11 @@ static void compile_org(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, ORG *
     if (l->kind == INT) {
       section_ctx_t *section = get_current_section(ctx);
 
+      if (l->ival < 0 || l->ival > 0xffff) {
+        report_error(ctx, "invalid value %d for ORG (must be in range 0..65535)",
+          l->ival, l->ival);
+      }
+
       if (l->ival < section->start) {
         bool old_v = ctx->verbose_error;
         ctx->verbose_error = false;

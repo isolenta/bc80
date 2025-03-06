@@ -33,9 +33,51 @@ static bool contains_reserved_ids(parse_node *node) {
   return false;
 }
 
+static inline void check_integer_overflow(compile_ctx_t *ctx, int value, int nbytes)
+{
+  const char *msg;
+  unsigned mask;
+
+  assert(nbytes == 1 || nbytes == 2);
+
+  if (nbytes == 1) {
+    msg = "byte";
+    mask = 0xff;
+  } else if (nbytes == 2) {
+    msg = "word";
+    mask = 0xffff;
+  }
+
+  if (value & ~mask)
+    report_warning(ctx, "%s value %d (0x%x) truncated",
+      msg, value, value);
+}
+
+static inline void check_reljump_overflow(compile_ctx_t *ctx, int value, char *instr_name)
+{
+  if (value & ~0xff)
+    report_error(ctx, "%s offset %d doesn't fit in byte", instr_name, value);
+}
+
+static inline void check_bitnum(compile_ctx_t *ctx, int value, char *instr_name)
+{
+  if (value < 0 || value > 7)
+    report_error(ctx, "invalid bit number %d in %s", value, instr_name);
+}
+
 static inline bool check_id_name(ID *id, char *name) {
   return strcasecmp(id->name, name) == 0;
 }
+
+static inline void check_arg_presence(compile_ctx_t *ctx, parse_node *argnode, int argid)
+{
+  if (argnode == NULL)
+    report_error(ctx, "argument %d missing", argid);
+}
+
+#define CHECK_VALID_NODE(_n_)  \
+  if ((_n_) == NULL)          \
+    return false
 
 #define CHECK_ARG_IS_ID(_n_)  \
   if ((_n_)->type != NODE_ID) \
@@ -43,26 +85,31 @@ static inline bool check_id_name(ID *id, char *name) {
   ID *id = (ID *)(_n_)
 
 static bool get_arg_accum(parse_node *node) {
+  CHECK_VALID_NODE(node);
   CHECK_ARG_IS_ID(node);
   return check_id_name(id, "a");
 }
 
 static bool get_arg_flags(parse_node *node) {
+  CHECK_VALID_NODE(node);
   CHECK_ARG_IS_ID(node);
   return check_id_name(id, "f");
 }
 
 static bool get_arg_intreg(parse_node *node) {
+  CHECK_VALID_NODE(node);
   CHECK_ARG_IS_ID(node);
   return check_id_name(id, "i");
 }
 
 static bool get_arg_rfshreg(parse_node *node) {
+  CHECK_VALID_NODE(node);
   CHECK_ARG_IS_ID(node);
   return check_id_name(id, "r");
 }
 
 static bool get_arg_gpr8(parse_node *node, int *reg_opcode, bool *is_ref) {
+  CHECK_VALID_NODE(node);
   CHECK_ARG_IS_ID(node);
 
   if (check_id_name(id, "a"))
@@ -88,6 +135,7 @@ static bool get_arg_gpr8(parse_node *node, int *reg_opcode, bool *is_ref) {
 }
 
 static bool get_arg_hl(parse_node *node, bool *is_ref) {
+  CHECK_VALID_NODE(node);
   CHECK_ARG_IS_ID(node);
 
   if (check_id_name(id, "hl")) {
@@ -99,6 +147,7 @@ static bool get_arg_hl(parse_node *node, bool *is_ref) {
 }
 
 static bool get_arg_qreg16(parse_node *node, int *reg_opcode, bool *is_ref) {
+  CHECK_VALID_NODE(node);
   CHECK_ARG_IS_ID(node);
 
   if (check_id_name(id, "bc"))
@@ -118,6 +167,7 @@ static bool get_arg_qreg16(parse_node *node, int *reg_opcode, bool *is_ref) {
 }
 
 static bool get_arg_preg16(parse_node *node, int *reg_opcode, bool *is_ref) {
+  CHECK_VALID_NODE(node);
   CHECK_ARG_IS_ID(node);
 
   if (check_id_name(id, "bc"))
@@ -137,16 +187,19 @@ static bool get_arg_preg16(parse_node *node, int *reg_opcode, bool *is_ref) {
 }
 
 static bool get_arg_af(parse_node *node) {
+  CHECK_VALID_NODE(node);
   CHECK_ARG_IS_ID(node);
   return check_id_name(id, "af");
 }
 
 static bool get_arg_af_shadow(parse_node *node) {
+  CHECK_VALID_NODE(node);
   CHECK_ARG_IS_ID(node);
   return check_id_name(id, "af'");
 }
 
 static bool get_arg_index(parse_node *node, int *i, bool *is_ref) {
+  CHECK_VALID_NODE(node);
   CHECK_ARG_IS_ID(node);
 
   if (check_id_name(id, "ix"))
@@ -162,6 +215,7 @@ static bool get_arg_index(parse_node *node, int *i, bool *is_ref) {
 }
 
 static bool get_arg_ixy_half(parse_node *node, int *prefix, int *i) {
+  CHECK_VALID_NODE(node);
   CHECK_ARG_IS_ID(node);
 
   if (id->is_ref)
@@ -186,6 +240,7 @@ static bool get_arg_ixy_half(parse_node *node, int *prefix, int *i) {
 }
 
 static bool get_arg_8imm(compile_ctx_t *ctx, parse_node *node, int *ival, bool *is_ref, int imm_pos) {
+  CHECK_VALID_NODE(node);
   if (node->type == NODE_LITERAL) {
     LITERAL *l = (LITERAL *)node;
     if (l->kind == INT) {
@@ -212,11 +267,14 @@ static bool get_arg_8imm(compile_ctx_t *ctx, parse_node *node, int *ival, bool *
 static bool get_arg_16imm(compile_ctx_t *ctx,
                           parse_node *node,
                           int *lsb, int *msb,
+                          int *orig_val,
                           bool *is_ref,
                           int imm_pos) {
+  CHECK_VALID_NODE(node);
   if (node->type == NODE_LITERAL) {
     LITERAL *l = (LITERAL *)node;
     if (l->kind == INT) {
+      *orig_val = l->ival;
       *lsb = l->ival & 0xFF;
       *msb = (l->ival >> 8) & 0xFF;
       *is_ref = l->is_ref;
@@ -231,6 +289,7 @@ static bool get_arg_16imm(compile_ctx_t *ctx,
       *is_ref = ((EXPR *)node)->is_ref;
 
     *lsb = 0; *msb = 0;
+    *orig_val = 0;
     register_fwd_lookup(ctx, node, imm_pos, 2, false, 0);
 
     return true;
@@ -239,6 +298,7 @@ static bool get_arg_16imm(compile_ctx_t *ctx,
 }
 
 static bool get_arg_index_offset8(compile_ctx_t *ctx, parse_node *node, int *idx, int *offset, int imm_pos) {
+  CHECK_VALID_NODE(node);
   if (node->type != NODE_EXPR)
     return false;
 
@@ -286,6 +346,8 @@ static bool get_arg_index_offset8(compile_ctx_t *ctx, parse_node *node, int *idx
 static bool get_arg_bitnum(parse_node *node, int *bitnum) {
   bool is_ref;
 
+  CHECK_VALID_NODE(node);
+
   // get_arg_8imm() doesn't need context for non-forward bitnum resolution so it's safe to pass NULL here
   bool result = get_arg_8imm(NULL, node, bitnum, &is_ref, -1);
   if ((*bitnum >= 0) && (*bitnum <= 7) && !is_ref)
@@ -294,6 +356,7 @@ static bool get_arg_bitnum(parse_node *node, int *bitnum) {
 }
 
 static bool get_arg_condition(parse_node *node, int *cond) {
+  CHECK_VALID_NODE(node);
   CHECK_ARG_IS_ID(node);
 
   if (check_id_name(id, "nz"))
@@ -319,6 +382,7 @@ static bool get_arg_condition(parse_node *node, int *cond) {
 }
 
 static bool get_arg_reladdr(compile_ctx_t *ctx, parse_node *node, int *reladdr, int imm_pos) {
+  CHECK_VALID_NODE(node);
 
 // any relative jump instructions have 2 bytes length (JR, DJNZ)
 #define JUMP_REL_INSTR_SIZE 2
@@ -336,8 +400,6 @@ static bool get_arg_reladdr(compile_ctx_t *ctx, parse_node *node, int *reladdr, 
       *reladdr = addr - section->curr_pc - JUMP_REL_INSTR_SIZE;
       if ((*reladdr >= -128) && (*reladdr <= 127))
         return true;
-      else
-        report_warning(ctx, "only relative addresses -128..127 are allowed (got %d)\n", *reladdr);
     }
   } else if ((imm_pos != -1) && !contains_reserved_ids(node)) {
     // will patch operand position with literal value at 2nd pass
@@ -349,13 +411,14 @@ static bool get_arg_reladdr(compile_ctx_t *ctx, parse_node *node, int *reladdr, 
   return false;
 }
 
-static bool get_arg_rstaddr(parse_node *node, int *rstcode) {
+static bool get_arg_rstaddr(parse_node *node, int *rstcode, int *orig_val) {
   bool is_ref;
-  int ival;
+
+  CHECK_VALID_NODE(node);
 
   // get_arg_8imm() doesn't need context for non-forward rstcode resolution so it's safe to pass NULL here
-  if (get_arg_8imm(NULL, node, &ival, &is_ref, -1) && !is_ref) {
-    switch (ival) {
+  if (get_arg_8imm(NULL, node, orig_val, &is_ref, -1) && !is_ref) {
+    switch (*orig_val) {
       case 0x00:
         *rstcode = 0;
         return true;
@@ -440,16 +503,21 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
   // compile it
   switch (i_mnemonic) {
     case ADC: {
+      check_arg_presence(ctx, arg1, 1);
+      check_arg_presence(ctx, arg2, 2);
+
       if (get_arg_accum(arg1)) {
         if (get_arg_gpr8(arg2, &opc, &is_ref) && !is_ref)
           render_byte(ctx, 0x88 | opc, 4);
-        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc + 2) && !is_ref)
+        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc + 2) && !is_ref) {
+          check_integer_overflow(ctx, opc, 1);
           render_2bytes(ctx, 0xCE, opc, 7);
-        else if (get_arg_hl(arg2, &is_ref) && is_ref)
+        } else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_byte(ctx, 0x8E, 7);
-        else if (get_arg_index_offset8(ctx, arg2, &opc, &opc2, section->curr_pc + 2))
+        else if (get_arg_index_offset8(ctx, arg2, &opc, &opc2, section->curr_pc + 2)) {
+          check_integer_overflow(ctx, opc2, 1);
           render_3bytes(ctx, 0xDD | (opc << 5), 0x8E, opc2, 19);
-        else if (get_arg_ixy_half(arg2, &opc, &opc2))
+        } else if (get_arg_ixy_half(arg2, &opc, &opc2))
           render_2bytes(ctx, opc, 0x88 | opc2, 8);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -466,16 +534,21 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case ADD: {
+      check_arg_presence(ctx, arg1, 1);
+      check_arg_presence(ctx, arg2, 2);
+
       if (get_arg_accum(arg1)) {
         if (get_arg_gpr8(arg2, &opc, &is_ref) && !is_ref)
           render_byte(ctx, 0x80 | opc, 4);
-        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc + 2) && !is_ref)
+        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc + 2) && !is_ref) {
+          check_integer_overflow(ctx, opc, 1);
           render_2bytes(ctx, 0xC6, opc, 7);
-        else if (get_arg_hl(arg2, &is_ref) && is_ref)
+        } else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_byte(ctx, 0x86, 7);
-        else if (get_arg_index_offset8(ctx, arg2, &opc, &opc2, section->curr_pc + 2))
+        else if (get_arg_index_offset8(ctx, arg2, &opc, &opc2, section->curr_pc + 2)) {
+          check_integer_overflow(ctx, opc2, 1);
           render_3bytes(ctx, 0xDD | (opc << 5), 0x86, opc2, 19);
-        else if (get_arg_ixy_half(arg2, &opc, &opc2))
+        } else if (get_arg_ixy_half(arg2, &opc, &opc2))
           render_2bytes(ctx, opc, 0x80 | opc2, 8);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -497,11 +570,14 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case AND: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0xA0 | opc, 4);
-      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc + 2) && !is_ref)
+      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc + 2) && !is_ref) {
+        check_integer_overflow(ctx, opc, 1);
         render_2bytes(ctx, 0xE6, opc, 7);
-      else if (get_arg_hl(arg1, &is_ref) && is_ref)
+      } else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0xA6, 7);
       else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc + 2))
         render_3bytes(ctx, 0xDD | (opc << 5), 0xA6, opc2, 19);
@@ -516,6 +592,9 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     case BIT: {
       int b;
 
+      check_arg_presence(ctx, arg1, 1);
+      check_arg_presence(ctx, arg2, 2);
+
       if (get_arg_bitnum(arg1, &b)) {
         bool is_ref;
         if (get_arg_gpr8(arg2, &opc, &is_ref) && !is_ref)
@@ -527,6 +606,7 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
         else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else {
+        check_bitnum(ctx, b, "BIT");
         ERR_UNEXPECTED_ARGUMENT(1);
       }
 
@@ -534,20 +614,28 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case CALL: {
+      int val;
+
+      check_arg_presence(ctx, arg1, 1);
+
       if (num_args == 1) {
         int lsb, msb;
 
-        if (get_arg_16imm(ctx, arg1, &lsb, &msb, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
+        if (get_arg_16imm(ctx, arg1, &lsb, &msb, &val, &is_ref, section->curr_pc - section->start + 1) && !is_ref) {
+          check_integer_overflow(ctx, val, 2);
           render_3bytes(ctx, 0xCD, lsb, msb, 17);
-        else
+        } else
           ERR_UNEXPECTED_ARGUMENT(1);
       } else if (num_args == 2) {
         int cond, lsb, msb;
 
+        check_arg_presence(ctx, arg2, 2);
+
         if (get_arg_condition(arg1, &cond)) {
-          if (get_arg_16imm(ctx, arg2, &lsb, &msb, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
+          if (get_arg_16imm(ctx, arg2, &lsb, &msb, &val, &is_ref, section->curr_pc - section->start + 1) && !is_ref) {
+            check_integer_overflow(ctx, val, 2);
             render_3bytes(ctx, 0xC4 | (cond << 3), lsb, msb, 17);
-          else
+          } else
             ERR_UNEXPECTED_ARGUMENT(2);
         } else {
           ERR_UNEXPECTED_ARGUMENT(1);
@@ -563,11 +651,14 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case CP: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0xB8 | opc, 4);
-      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc - section->start + 2) && !is_ref)
+      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc - section->start + 2) && !is_ref) {
+        check_integer_overflow(ctx, opc, 1);
         render_2bytes(ctx, 0xFE, opc, 7);
-      else if (get_arg_hl(arg1, &is_ref) && is_ref)
+      } else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0xBE, 7);
       else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2))
         render_3bytes(ctx, 0xDD | (opc << 5), 0xBE, opc2, 19);
@@ -610,6 +701,8 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case DEC: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0x05 | (opc << 3), 4);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
@@ -635,10 +728,15 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
 
     case DJNZ: {
       int reladdr;
+
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_reladdr(ctx, arg1, &reladdr, section->curr_pc - section->start + 1))
         render_2bytes(ctx, 0x10, reladdr, 13);
-      else
+      else {
+        check_reljump_overflow(ctx, reladdr, "DJNZ");
         ERR_UNEXPECTED_ARGUMENT(1);
+      }
 
       break;
     }
@@ -649,6 +747,9 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case EX: {
+      check_arg_presence(ctx, arg1, 1);
+      check_arg_presence(ctx, arg2, 2);
+
       if (get_arg_qreg16(arg1, &opc, &is_ref) && (opc == REG_SP) && is_ref) {
         if (get_arg_hl(arg2, &is_ref) && !is_ref)
           render_byte(ctx, 0xE3, 19);
@@ -684,6 +785,8 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case IM: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_8imm(ctx, arg1, &opc, &is_ref, -1) && (opc == 0) && !is_ref)
         render_2bytes(ctx, 0xED, 0x46, 8);
       else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, -1) && (opc == 1) && !is_ref)
@@ -697,10 +800,14 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case IN: {
+      check_arg_presence(ctx, arg1, 1);
+      check_arg_presence(ctx, arg2, 2);
+
       if (get_arg_accum(arg1)) {
-        if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc - section->start + 2) && is_ref)
+        if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc - section->start + 2) && is_ref) {
+          check_integer_overflow(ctx, opc, 1);
           render_2bytes(ctx, 0xDB, opc, 11);
-        else if (get_arg_gpr8(arg2, &opc2, &is_ref) && is_ref && (opc2 == REG_C))
+        } else if (get_arg_gpr8(arg2, &opc2, &is_ref) && is_ref && (opc2 == REG_C))
           render_2bytes(ctx, 0xED, 0x78, 12);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -722,6 +829,8 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case INC: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0x04 | (opc << 3), 4);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
@@ -761,12 +870,17 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case JP: {
+      int val;
+
+      check_arg_presence(ctx, arg1, 1);
+
       if (num_args == 1) {
         int lsb=0, msb=0;
 
-        if (get_arg_16imm(ctx, arg1, &lsb, &msb, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
+        if (get_arg_16imm(ctx, arg1, &lsb, &msb, &val, &is_ref, section->curr_pc - section->start + 1) && !is_ref) {
+          check_integer_overflow(ctx, val, 2);
           render_3bytes(ctx, 0xC3, lsb, msb, 10);
-        else if (get_arg_hl(arg1, &is_ref) && is_ref)
+        } else if (get_arg_hl(arg1, &is_ref) && is_ref)
           render_byte(ctx, 0xE9, 4);
         else if (get_arg_index(arg1, &lsb, &is_ref) && is_ref)
           render_2bytes(ctx, 0xDD | (lsb << 5), 0xE9, 8);
@@ -775,10 +889,13 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
       } else if (num_args == 2) {
         int lsb, msb, cond;
 
+        check_arg_presence(ctx, arg2, 2);
+
         if (get_arg_condition(arg1, &cond)) {
-          if (get_arg_16imm(ctx, arg2, &lsb, &msb, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
+          if (get_arg_16imm(ctx, arg2, &lsb, &msb, &val, &is_ref, section->curr_pc - section->start + 1) && !is_ref) {
+            check_integer_overflow(ctx, val, 2);
             render_3bytes(ctx, 0xC2 | (cond << 3), lsb, msb, 10);
-          else
+          } else
             ERR_UNEXPECTED_ARGUMENT(2);
         } else {
           ERR_UNEXPECTED_ARGUMENT(1);
@@ -789,15 +906,21 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case JR: {
-      if (num_args == 1) {
-        int reladdr;
+      int reladdr;
 
+      check_arg_presence(ctx, arg1, 1);
+
+      if (num_args == 1) {
         if (get_arg_reladdr(ctx, arg1, &reladdr, section->curr_pc - section->start + 1))
           render_2bytes(ctx, 0x18, reladdr, 12);
-        else
+        else {
+          check_reljump_overflow(ctx, reladdr, "JR");
           ERR_UNEXPECTED_ARGUMENT(1);
+        }
       } else if (num_args == 2) {
-        int reladdr, cond;
+        int cond;
+
+        check_arg_presence(ctx, arg2, 2);
 
         if (get_arg_reladdr(ctx, arg2, &reladdr, section->curr_pc - section->start + 1)) {
           if (get_arg_condition(arg1, &cond) && (cond == COND_NZ))
@@ -811,6 +934,7 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
           else
             ERR_UNEXPECTED_ARGUMENT(2);
         } else {
+          check_reljump_overflow(ctx, reladdr, "JR");
           ERR_UNEXPECTED_ARGUMENT(1);
         }
       }
@@ -819,54 +943,66 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case LD: {
-      int i, b, i2, b2, opc3;
+      int i, b, i2, b2, opc3, val;
+
+      check_arg_presence(ctx, arg1, 1);
+      check_arg_presence(ctx, arg2, 2);
 
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref) {
         if ((opc == REG_A) && get_arg_qreg16(arg2, &opc2, &is_ref) && is_ref && (opc2 == REG_BC))
           render_byte(ctx, 0x0A, 7);
         else if ((opc == REG_A) && get_arg_qreg16(arg2, &opc2, &is_ref) && is_ref && (opc2 == REG_DE))
           render_byte(ctx, 0x1A, 7);
-        else if ((opc == REG_A) && get_arg_16imm(ctx, arg2, &opc3, &opc2, &is_ref, section->curr_pc - section->start + 1) && is_ref)
+        else if ((opc == REG_A) && get_arg_16imm(ctx, arg2, &opc3, &opc2, &val, &is_ref, section->curr_pc - section->start + 1) && is_ref) {
+          check_integer_overflow(ctx, val, 2);
           render_3bytes(ctx, 0x3A, opc3, opc2, 13);
-        else if ((opc == REG_A) && get_arg_intreg(arg2))
+        } else if ((opc == REG_A) && get_arg_intreg(arg2))
           render_2bytes(ctx, 0xED, 0x57, 9);
         else if ((opc == REG_A) && get_arg_rfshreg(arg2))
           render_2bytes(ctx, 0xED, 0x5F, 9);
         else if (get_arg_gpr8(arg2, &opc2, &is_ref) && !is_ref)
           render_byte(ctx, 0x40 | (opc << 3) | opc2, 4);
-        else if (get_arg_8imm(ctx, arg2, &opc2, &is_ref, section->curr_pc - section->start + 2) && !is_ref)
+        else if (get_arg_8imm(ctx, arg2, &opc2, &is_ref, section->curr_pc - section->start + 2) && !is_ref) {
+          check_integer_overflow(ctx, opc2, 1);
           render_2bytes(ctx, 0x06 | (opc << 3), opc2, 7);
-        else if (get_arg_hl(arg2, &is_ref) && is_ref)
+        } else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_byte(ctx, 0x46 | (opc << 3), 7);
-        else if (get_arg_index_offset8(ctx, arg2, &i, &opc2, section->curr_pc - section->start + 2))
+        else if (get_arg_index_offset8(ctx, arg2, &i, &opc2, section->curr_pc - section->start + 2)) {
+          check_integer_overflow(ctx, opc2, 1);
           render_3bytes(ctx, 0xDD | (i << 5), 0x46 | (opc << 3), opc2, 19);
-        else if ((opc == REG_A) && (get_arg_16imm(ctx, arg2, &opc, &opc2, &is_ref, section->curr_pc - section->start + 1) && is_ref))
+        } else if ((opc == REG_A) && (get_arg_16imm(ctx, arg2, &opc, &opc2, &val, &is_ref, section->curr_pc - section->start + 1) && is_ref)) {
+          check_integer_overflow(ctx, val, 2);
           render_3bytes(ctx, 0x3A, opc, opc2, 13);
-        else if (get_arg_ixy_half(arg2, &opc2, &opc3))
+        } else if (get_arg_ixy_half(arg2, &opc2, &opc3))
           render_2bytes(ctx, opc2, 0x40 | (opc << 3) | opc3, 8);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else if (get_arg_hl(arg1, &is_ref) && is_ref) {
         if (get_arg_gpr8(arg2, &opc, &is_ref) && !is_ref)
           render_byte(ctx, 0x70 | opc, 7);
-        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
+        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref) {
+          check_integer_overflow(ctx, opc, 1);
           render_2bytes(ctx, 0x36, opc, 10);
-        else
+        } else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else if (get_arg_hl(arg1, &is_ref) && !is_ref) {
-        if (get_arg_16imm(ctx, arg2, &opc, &opc2, &is_ref, section->curr_pc - section->start + 1) && is_ref)
+        if (get_arg_16imm(ctx, arg2, &opc, &opc2, &val, &is_ref, section->curr_pc - section->start + 1) && is_ref) {
+          check_integer_overflow(ctx, val, 2);
           render_3bytes(ctx, 0x2A, opc, opc2, 16);
-        else if (get_arg_16imm(ctx, arg2, &opc, &opc2, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
+        } else if (get_arg_16imm(ctx, arg2, &opc, &opc2, &val, &is_ref, section->curr_pc - section->start + 1) && !is_ref) {
+          check_integer_overflow(ctx, val, 2);
           render_3bytes(ctx, 0x01 | (REG_HL << 4), opc, opc2, 10);
-        else {
+        } else {
           ERR_UNEXPECTED_ARGUMENT(2);
         }
       } else if (get_arg_index_offset8(ctx, arg1, &i, &opc, section->curr_pc - section->start + 2)) {
+        check_integer_overflow(ctx, opc, 1);
         if (get_arg_gpr8(arg2, &opc2, &is_ref) && !is_ref)
           render_3bytes(ctx, 0xDD | (i << 5), 0x70 | opc2, opc, 19);
-        else if (get_arg_8imm(ctx, arg2, &opc2, &is_ref, section->curr_pc - section->start + 3) && !is_ref)
+        else if (get_arg_8imm(ctx, arg2, &opc2, &is_ref, section->curr_pc - section->start + 3) && !is_ref) {
+          check_integer_overflow(ctx, opc2, 1);
           render_4bytes(ctx, 0xDD | (i << 5), 0x36, opc, opc2, 19);
-        else
+        } else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else if (get_arg_qreg16(arg1, &opc, &is_ref) && is_ref && (opc == REG_BC)) {
         if (get_arg_accum(arg2))
@@ -878,7 +1014,8 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
           render_byte(ctx, 0x12, 7);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
-      } else if (get_arg_16imm(ctx, arg1, &opc, &opc2, &is_ref, -1) && is_ref) {
+      } else if (get_arg_16imm(ctx, arg1, &opc, &opc2, &val, &is_ref, -1) && is_ref) {
+        check_integer_overflow(ctx, val, 2);
         if (get_arg_accum(arg2))
           render_3bytes(ctx, 0x32, opc, opc2, 13);
         else if (get_arg_hl(arg2, &is_ref) && !is_ref)
@@ -904,24 +1041,29 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
           render_byte(ctx, 0xF9, 6);
         else if ((opc == REG_SP) && get_arg_index(arg2, &opc2, &is_ref) && !is_ref)
           render_2bytes(ctx, 0xDD | (opc2 << 5), 0xF9, 10);
-        else if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
+        else if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &val, &is_ref, section->curr_pc - section->start + 1) && !is_ref) {
+          check_integer_overflow(ctx, val, 2);
           render_3bytes(ctx, 0x01 | (opc << 4), opc2, opc3, 10);
-        else if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &is_ref, section->curr_pc - section->start + 2) && is_ref)
+        } else if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &val, &is_ref, section->curr_pc - section->start + 2) && is_ref) {
+          check_integer_overflow(ctx, val, 2);
           render_4bytes(ctx, 0xED, 0x4B | (opc << 4), opc2, opc3, 20);
-        else
+        } else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else if (get_arg_index(arg1, &opc, &is_ref) && !is_ref) {
-        if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &is_ref, section->curr_pc - section->start + 2) && !is_ref)
+        if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &val, &is_ref, section->curr_pc - section->start + 2) && !is_ref) {
+          check_integer_overflow(ctx, val, 2);
           render_4bytes(ctx, 0xDD | (opc << 5), 0x21, opc2, opc3, 14);
-        else if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &is_ref, section->curr_pc - section->start + 2) && is_ref)
+        } else if (get_arg_16imm(ctx, arg2, &opc2, &opc3, &val, &is_ref, section->curr_pc - section->start + 2) && is_ref) {
+          check_integer_overflow(ctx, val, 2);
           render_4bytes(ctx, 0xDD | (opc << 5), 0x2A, opc2, opc3, 20);
-        else
+        } else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else if (get_arg_ixy_half(arg1, &opc, &opc2)) {
         int second_arg, pfx2;
         if (get_arg_gpr8(arg2, &second_arg, &is_ref) && !is_ref) {
           render_2bytes(ctx, opc, 0x40 | (opc2 << 3) | second_arg, 8);
         } else if (get_arg_8imm(ctx, arg2, &second_arg, &is_ref, section->curr_pc - section->start + 2) && !is_ref) {
+          check_integer_overflow(ctx, second_arg, 1);
           render_3bytes(ctx, opc, 0x06 | (opc2 << 3), second_arg, 11);
         } else if (get_arg_ixy_half(arg2, &pfx2, &opc3)) {
           render_2bytes(ctx, opc, 0x40 | (opc2 << 3) | opc3, 8);
@@ -964,15 +1106,19 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case OR: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0xB0 | opc, 4);
-      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
+      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref) {
+        check_integer_overflow(ctx, opc, 1);
         render_2bytes(ctx, 0xF6, opc, 7);
-      else if (get_arg_hl(arg1, &is_ref) && is_ref)
+      } else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0xB6, 7);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2)) {
+        check_integer_overflow(ctx, opc2, 1);
         render_3bytes(ctx, 0xDD | (opc << 5), 0xB6, opc2, 19);
-      else if (get_arg_ixy_half(arg1, &opc, &opc2))
+      } else if (get_arg_ixy_half(arg1, &opc, &opc2))
         render_2bytes(ctx, opc, 0xB0 | opc2, 8);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -981,7 +1127,11 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case OUT: {
+      check_arg_presence(ctx, arg1, 1);
+      check_arg_presence(ctx, arg2, 2);
+
       if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc - section->start + 1) && is_ref) {
+        check_integer_overflow(ctx, opc, 1);
         if (get_arg_accum(arg2))
           render_2bytes(ctx, 0xD3, opc, 11);
         else
@@ -1021,6 +1171,8 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case POP: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_preg16(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0xC1 | (opc << 4), 10);
       else if (get_arg_index(arg1, &opc, &is_ref) && !is_ref)
@@ -1032,6 +1184,8 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case PUSH: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_preg16(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0xC5 | (opc << 4), 11);
       else if (get_arg_index(arg1, &opc, &is_ref) && !is_ref)
@@ -1045,16 +1199,21 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     case RES: {
       int opc3;
 
+      check_arg_presence(ctx, arg1, 1);
+      check_arg_presence(ctx, arg2, 2);
+
       if (get_arg_bitnum(arg1, &opc)) {
         if (get_arg_gpr8(arg2, &opc2, &is_ref) && !is_ref)
           render_2bytes(ctx, 0xCB, 0x80 | (opc << 3) | opc2, 8);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_2bytes(ctx, 0xCB, 0x86 | (opc << 3), 15);
-        else if (get_arg_index_offset8(ctx, arg2, &opc2, &opc3, section->curr_pc - section->start + 2))
+        else if (get_arg_index_offset8(ctx, arg2, &opc2, &opc3, section->curr_pc - section->start + 2)) {
+          check_integer_overflow(ctx, opc3, 1);
           render_4bytes(ctx, 0xDD | (opc2 << 5), 0xCB, opc3, 0x86 | (opc << 3), 23);
-        else
+        } else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else {
+        check_bitnum(ctx, opc, "RES");
         ERR_UNEXPECTED_ARGUMENT(1);
       }
 
@@ -1065,6 +1224,8 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
       if (num_args == 0) {
         render_byte(ctx, 0xC9, 10);
       } else if (num_args == 1) {
+        check_arg_presence(ctx, arg1, 1);
+
         if (get_arg_condition(arg1, &opc))
           render_byte(ctx, 0xC0 | (opc << 3), 11);
         else
@@ -1090,13 +1251,16 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case RL: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_2bytes(ctx, 0xCB, 0x10 | opc, 8);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x16, 15);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2)) {
+        check_integer_overflow(ctx, opc2, 1);
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x16, 23);
-      else
+      } else
         ERR_UNEXPECTED_ARGUMENT(1);
 
       break;
@@ -1108,13 +1272,16 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case RLC: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_2bytes(ctx, 0xCB, 0x00 | opc, 8);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x06, 15);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2)) {
+        check_integer_overflow(ctx, opc2, 1);
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x06, 23);
-      else
+      } else
         ERR_UNEXPECTED_ARGUMENT(1);
 
       break;
@@ -1131,13 +1298,16 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case RR: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_2bytes(ctx, 0xCB, 0x18 | opc, 8);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x1E, 15);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2)) {
+        check_integer_overflow(ctx, opc2, 1);
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x1E, 23);
-      else
+      } else
         ERR_UNEXPECTED_ARGUMENT(1);
 
       break;
@@ -1149,13 +1319,16 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case RRC: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_2bytes(ctx, 0xCB, 0x08 | opc, 8);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x0E, 15);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2)) {
+        check_integer_overflow(ctx, opc2, 1);
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x0E, 23);
-      else
+      } else
         ERR_UNEXPECTED_ARGUMENT(1);
 
       break;
@@ -1167,25 +1340,36 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case RST: {
-      if (get_arg_rstaddr(arg1, &opc))
+      int val;
+
+      check_arg_presence(ctx, arg1, 1);
+
+      if (get_arg_rstaddr(arg1, &opc, &val))
         render_byte(ctx, 0xC7 | (opc << 3), 11);
-      else
-        ERR_UNEXPECTED_ARGUMENT(1);
+      else {
+        report_error(ctx, "invalid value 0x%x for RST",
+          val);
+      }
 
       break;
     }
 
     case SBC: {
+      check_arg_presence(ctx, arg1, 1);
+      check_arg_presence(ctx, arg2, 2);
+
       if (get_arg_accum(arg1)) {
         if (get_arg_gpr8(arg2, &opc, &is_ref) && !is_ref)
           render_byte(ctx, 0x98 | opc, 4);
-        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
+        else if (get_arg_8imm(ctx, arg2, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref) {
+          check_integer_overflow(ctx, opc, 1);
           render_2bytes(ctx, 0xDE, opc, 7);
-        else if (get_arg_hl(arg2, &is_ref) && is_ref)
+        } else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_byte(ctx, 0x9E, 7);
-        else if (get_arg_index_offset8(ctx, arg2, &opc, &opc2, section->curr_pc - section->start + 2))
+        else if (get_arg_index_offset8(ctx, arg2, &opc, &opc2, section->curr_pc - section->start + 2)) {
+          check_integer_overflow(ctx, opc2, 1);
           render_3bytes(ctx, 0xDD | (opc << 5), 0x9E, opc2, 19);
-        else if (get_arg_ixy_half(arg2, &opc, &opc2))
+        } else if (get_arg_ixy_half(arg2, &opc, &opc2))
           render_2bytes(ctx, opc, 0x98 | opc2, 8);
         else
           ERR_UNEXPECTED_ARGUMENT(2);
@@ -1209,16 +1393,21 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     case SET: {
       int opc3;
 
+      check_arg_presence(ctx, arg1, 1);
+      check_arg_presence(ctx, arg2, 1);
+
       if (get_arg_bitnum(arg1, &opc)) {
         if (get_arg_gpr8(arg2, &opc2, &is_ref) && !is_ref)
           render_2bytes(ctx, 0xCB, 0xC0 | (opc << 3) | opc2, 8);
         else if (get_arg_hl(arg2, &is_ref) && is_ref)
           render_2bytes(ctx, 0xCB, 0xC6 | (opc << 3), 15);
-        else if (get_arg_index_offset8(ctx, arg2, &opc2, &opc3, section->curr_pc - section->start + 2))
+        else if (get_arg_index_offset8(ctx, arg2, &opc2, &opc3, section->curr_pc - section->start + 2)) {
+          check_integer_overflow(ctx, opc3, 1);
           render_4bytes(ctx, 0xDD | (opc2 << 5), 0xCB, opc3, 0xC6 | (opc << 3), 23);
-        else
+        } else
           ERR_UNEXPECTED_ARGUMENT(2);
       } else {
+        check_bitnum(ctx, opc, "SET");
         ERR_UNEXPECTED_ARGUMENT(1);
       }
 
@@ -1226,67 +1415,83 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case SLA: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_2bytes(ctx, 0xCB, 0x20 | opc, 8);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x26, 15);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2)) {
+        check_integer_overflow(ctx, opc2, 1);
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x26, 23);
-      else
+      } else
         ERR_UNEXPECTED_ARGUMENT(1);
 
       break;
     }
 
     case SRA: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_2bytes(ctx, 0xCB, 0x28 | opc, 8);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x2E, 15);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2)) {
+        check_integer_overflow(ctx, opc2, 1);
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x2E, 23);
-      else
+      } else
         ERR_UNEXPECTED_ARGUMENT(1);
 
       break;
     }
 
     case SLL: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_2bytes(ctx, 0xCB, 0x30 | opc, 8);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x36, 15);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2)) {
+        check_integer_overflow(ctx, opc2, 1);
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x36, 23);
-      else
+      } else
         ERR_UNEXPECTED_ARGUMENT(1);
 
       break;
     }
 
     case SRL: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_2bytes(ctx, 0xCB, 0x38 | opc, 8);
       else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_2bytes(ctx, 0xCB, 0x3E, 15);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2)) {
+        check_integer_overflow(ctx, opc2, 1);
         render_4bytes(ctx, 0xDD | (opc << 5), 0xCB, opc2, 0x3E, 23);
-      else
+      } else
         ERR_UNEXPECTED_ARGUMENT(1);
 
       break;
     }
 
     case SUB: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0x90 | opc, 4);
-      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
+      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref) {
+        check_integer_overflow(ctx, opc, 1);
         render_2bytes(ctx, 0xD6, opc, 7);
-      else if (get_arg_hl(arg1, &is_ref) && is_ref)
+      } else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0x96, 7);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2)) {
+        check_integer_overflow(ctx, opc2, 1);
         render_3bytes(ctx, 0xDD | (opc << 5), 0x96, opc2, 19);
-      else if (get_arg_ixy_half(arg1, &opc, &opc2))
+      } else if (get_arg_ixy_half(arg1, &opc, &opc2))
         render_2bytes(ctx, opc, 0x90 | opc2, 8);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
@@ -1295,15 +1500,19 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
     }
 
     case XOR: {
+      check_arg_presence(ctx, arg1, 1);
+
       if (get_arg_gpr8(arg1, &opc, &is_ref) && !is_ref)
         render_byte(ctx, 0xA8 | opc, 4);
-      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref)
+      else if (get_arg_8imm(ctx, arg1, &opc, &is_ref, section->curr_pc - section->start + 1) && !is_ref) {
+        check_integer_overflow(ctx, opc, 1);
         render_2bytes(ctx, 0xEE, opc, 7);
-      else if (get_arg_hl(arg1, &is_ref) && is_ref)
+      } else if (get_arg_hl(arg1, &is_ref) && is_ref)
         render_byte(ctx, 0xAE, 7);
-      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2))
+      else if (get_arg_index_offset8(ctx, arg1, &opc, &opc2, section->curr_pc - section->start + 2)) {
+        check_integer_overflow(ctx, opc2, 1);
         render_3bytes(ctx, 0xDD | (opc << 5), 0xAE, opc2, 19);
-      else if (get_arg_ixy_half(arg1, &opc, &opc2))
+      } else if (get_arg_ixy_half(arg1, &opc, &opc2))
         render_2bytes(ctx, opc, 0xA8 | opc2, 8);
       else
         ERR_UNEXPECTED_ARGUMENT(1);
