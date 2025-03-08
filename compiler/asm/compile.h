@@ -86,7 +86,7 @@ typedef struct {
       fmt, ## __VA_ARGS__); \
   } while (0)
 
-extern parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool do_eval_dollar, bool *literal_evals);
+extern parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool *literal_evals);
 extern int compile(struct libasm_as_desc_t *desc, dynarray *parse);
 extern void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args);
 extern void register_fwd_lookup(compile_ctx_t *ctx,

@@ -50,7 +50,7 @@ static void profile_start(compile_ctx_t *ctx, char *name)
 
 static void compile_equ(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, EQU *equ)
 {
-  add_sym_variable_node(ctx, equ->name->name, expr_eval(ctx, (parse_node *)equ->value, false, NULL));
+  add_sym_variable_node(ctx, equ->name->name, expr_eval(ctx, (parse_node *)equ->value, NULL));
 }
 
 static void compile_section(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, SECTION *section)
@@ -86,7 +86,7 @@ static void compile_section(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, S
       assert(equ->type == NODE_EQU);
 
       if (strcasecmp(equ->name->name, "base") == 0) {
-        LITERAL *base_value = (LITERAL *)expr_eval(ctx, (parse_node *)equ->value, true, NULL);
+        LITERAL *base_value = (LITERAL *)expr_eval(ctx, (parse_node *)equ->value, NULL);
         if (!IS_INT_LITERAL(base_value))
           report_error(ctx, "can't evaluate 'base' parameter as integer value");
 
@@ -94,7 +94,7 @@ static void compile_section(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, S
         if (address < 0 || address > 0xffff)
           report_error(ctx, "'base' parameter value %d is out of bounds (0..65536)", address);
       } else if (strcasecmp(equ->name->name, "fill") == 0) {
-        LITERAL *fill_value = (LITERAL *)expr_eval(ctx, (parse_node *)equ->value, true, NULL);
+        LITERAL *fill_value = (LITERAL *)expr_eval(ctx, (parse_node *)equ->value, NULL);
         if (!IS_INT_LITERAL(fill_value))
           report_error(ctx, "can't evaluate 'fill' parameter as integer value");
 
@@ -125,7 +125,7 @@ static void compile_section(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, S
 
 static void compile_org(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, ORG *org)
 {
-  parse_node *org_val = expr_eval(ctx, org->value, true, NULL);
+  parse_node *org_val = expr_eval(ctx, org->value, NULL);
 
   if (org_val->type == NODE_LITERAL) {
     LITERAL *l = (LITERAL *)org_val;
@@ -170,13 +170,13 @@ static void compile_def(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, DEF *
       ((LITERAL *)filler)->ival = 0;
     } else if (dynarray_length(def->values->list) == 2) {
       // filler value can be evaluated here or later
-      filler = expr_eval(ctx, dsecond(def->values->list), true, NULL);
+      filler = expr_eval(ctx, dsecond(def->values->list), NULL);
     } else {
       report_error(ctx, "DEFS must contain 1 or 2 arguments");
     }
 
     // size of block must be explicit integer value
-    nrep = expr_eval(ctx, dinitial(def->values->list), true, NULL);
+    nrep = expr_eval(ctx, dinitial(def->values->list), NULL);
     if ((nrep->type != NODE_LITERAL) || (((LITERAL *)nrep)->kind != INT))
       report_error(ctx, "argument 1 of DEFS must explicit integer literal value");
 
@@ -205,7 +205,7 @@ static void compile_def(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, DEF *
 
     foreach(def_dc, def->values->list) {
       parse_node *def_elem = (parse_node *)dfirst(def_dc);
-      def_elem = expr_eval(ctx, def_elem, true, NULL);
+      def_elem = expr_eval(ctx, def_elem, NULL);
 
       LITERAL *l;
 
@@ -313,7 +313,7 @@ static void compile_instr(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, INS
       parse_node *arg;
       bool is_ref = false;
 
-      arg = expr_eval(ctx, dfirst(dc), true, &literal_evals);
+      arg = expr_eval(ctx, dfirst(dc), &literal_evals);
       dfirst(dc) = arg;
 
       if (arg->type == NODE_LITERAL) {
@@ -332,7 +332,7 @@ static void compile_instr(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, INS
 
 static void compile_rept(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, REPT *rept, int loop_iter)
 {
-  LITERAL *count_value = (LITERAL *)expr_eval(ctx, (parse_node *)rept->count_expr, true, NULL);
+  LITERAL *count_value = (LITERAL *)expr_eval(ctx, (parse_node *)rept->count_expr, NULL);
   if (!IS_INT_LITERAL(count_value))
     report_error(ctx, "can't evaluate REPT argument as integer value");
 
@@ -499,7 +499,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse)
     patch_t *patch = (patch_t *)dfirst(dc);
 
     compile_ctx.lookup_rept_iter_id = patch->rept_iter_id;
-    parse_node *resolved_node = expr_eval(&compile_ctx, patch->node, true, NULL);
+    parse_node *resolved_node = expr_eval(&compile_ctx, patch->node, NULL);
     compile_ctx.lookup_rept_iter_id = -1;
 
     if (resolved_node->type != NODE_LITERAL) {
