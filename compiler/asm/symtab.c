@@ -72,9 +72,6 @@ parse_node *add_sym_variable_node(compile_ctx_t *ctx, const char *name, parse_no
 
 parse_node *add_sym_variable_integer(compile_ctx_t *ctx, const char *name, int ival)
 {
-  if (is_reserved_ident(name))
-    report_error(ctx, "can't redefine reserved identifier %s", name);
-
   LITERAL *l = make_node_internal(LITERAL);
   l->kind = INT;
   l->is_ref = false;
@@ -83,7 +80,7 @@ parse_node *add_sym_variable_integer(compile_ctx_t *ctx, const char *name, int i
   return add_sym_variable_node(ctx, name, (parse_node *)l);
 }
 
-LITERAL *get_sym_variable(compile_ctx_t *ctx, const char *name, bool missing_ok)
+parse_node *get_sym_variable(compile_ctx_t *ctx, const char *name, bool missing_ok)
 {
   parse_node *node = hashmap_search(ctx->symtab, (void *)name, HASHMAP_FIND, NULL);
   if (node == NULL) {
@@ -95,10 +92,10 @@ LITERAL *get_sym_variable(compile_ctx_t *ctx, const char *name, bool missing_ok)
 
   assert(node->type == NODE_LITERAL);
 
-  return (LITERAL *)node;
+  return node;
 }
 
-void remove_sym_variable(compile_ctx_t *ctx, const char *name)
+parse_node *remove_sym_variable(compile_ctx_t *ctx, const char *name)
 {
-  hashmap_search(ctx->symtab, (void *)name, HASHMAP_REMOVE, NULL);
+  return (parse_node *)hashmap_search(ctx->symtab, (void *)name, HASHMAP_REMOVE, NULL);
 }

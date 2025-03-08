@@ -45,9 +45,9 @@ static int error_cb(int flags, const char *message, const char *filename, int li
       fprintf(stderr, ":%d", line);
     if (flags & ERROR_OUT_POS)
       fprintf(stderr, ":%d", pos);
-    fprintf(stderr, ":\x1b[0m");
+    fprintf(stderr, ":\x1b[0m ");
   }
-  fprintf(stderr, " \x1b[91merror:\x1b[0m \x1b[97m%s\x1b[0m\n", message);
+  fprintf(stderr, "\x1b[91merror:\x1b[0m \x1b[97m%s\x1b[0m\n", message);
   return 1;
 }
 

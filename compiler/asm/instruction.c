@@ -451,7 +451,7 @@ static bool get_arg_rstaddr(parse_node *node, int *rstcode, int *orig_val) {
   return false;
 }
 
-void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
+void compile_instruction_impl(compile_ctx_t *ctx, char *name, dynarray *args) {
   section_ctx_t *section = get_current_section(ctx);
 
   #define ERR_UNEXPECTED_ARGUMENT(n) do { \
@@ -471,7 +471,7 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
   }
 
   // check number of arguments
-  int num_args = (args && args->list) ? dynarray_length(args->list) : 0;
+  int num_args = dynarray_length(args);
   int chk_mask = 0;
 
   if (num_args == 0)
@@ -488,14 +488,11 @@ void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args) {
   parse_node *arg1 = NULL;
   parse_node *arg2 = NULL;
 
-  if (args && args->list && (dynarray_length(args->list) > 0))
-    arg1 = dinitial(args->list);
+  if (dynarray_length(args) > 0)
+    arg1 = dinitial(args);
 
-  if (args && args->list && (dynarray_length(args->list) > 1))
-    arg2 = dsecond(args->list);
-
-  if (args && args->list && (dynarray_length(args->list) > 2))
-    report_error(ctx, "invalid number of arguments %d", dynarray_length(args->list));
+  if (dynarray_length(args) > 1)
+    arg2 = dsecond(args);
 
   bool is_ref;
   int opc, opc2;

@@ -280,15 +280,23 @@ static void compile_label(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, LAB
     report_error(ctx, "duplicate label '%s'", label_name);
 
   // if we're inside REPT block, localize label name by adding suffix
-  // 'labelname' => 'labelname#n' where n is iteration index.
+  // 'labelname' => 'labelname#n1#n2#...' where nX is iteration index for
+  // every nested REPT block starting from topmost one.
   // Note that symbol '#' is forbidden in identifiers so there is no way
   // to get a name collision with user-defined labels.
-  char *localized_name = label_name;
-  if (ctx->curr_rept != NULL) {
-    localized_name = bsprintf("%s#%d", label->name->name, ctx->curr_rept->counter);
+  char *localized_name = xstrdup(label_name);
+  dynarray_cell *dc;
+  foreach(dc, ctx->repts) {
+    char *tmp = localized_name;
+    rept_ctx_t *rept_ctx = (rept_ctx_t *)dfirst(dc);
+
+    localized_name = bsprintf("%s#%d", localized_name, rept_ctx->counter);
+    xfree(tmp);
   }
 
   add_sym_variable_integer(ctx, localized_name, section->curr_pc);
+
+  xfree(localized_name);
 
   if (desc->profile_mode != PROFILE_NONE) {
     if ((desc->profile_mode == PROFILE_ALL) ||
@@ -305,16 +313,16 @@ static void compile_instr(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, INS
   dynarray_cell *dc = NULL;
   ID *name_id = (ID *)instr->name;
   char *name = name_id->name;
+  dynarray *arglist = NULL;
 
   // evaluate all instruction arguments
   if (instr->args && instr->args->list) {
     foreach(dc, instr->args->list) {
       bool literal_evals = false;
-      parse_node *arg;
       bool is_ref = false;
 
-      arg = expr_eval(ctx, dfirst(dc), &literal_evals);
-      dfirst(dc) = arg;
+      parse_node *arg = expr_eval(ctx, dfirst(dc), &literal_evals);
+      arglist = dynarray_append_ptr(arglist, arg);
 
       if (arg->type == NODE_LITERAL) {
         LITERAL *arg_lit = (LITERAL *)arg;
@@ -327,7 +335,7 @@ static void compile_instr(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, INS
 
   }
 
-  compile_instruction_impl(ctx, name, instr->args);
+  compile_instruction_impl(ctx, name, arglist);
 }
 
 static void compile_rept(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, REPT *rept, int loop_iter)
@@ -336,49 +344,59 @@ static void compile_rept(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, REPT
   if (!IS_INT_LITERAL(count_value))
     report_error(ctx, "can't evaluate REPT argument as integer value");
 
-  if (ctx->curr_rept != NULL)
-    report_error(ctx, "nested REPT blocks are not allowed");
-
-  ctx->curr_rept = (rept_ctx_t *)xmalloc(sizeof(rept_ctx_t));
-  ctx->curr_rept->count = count_value->ival;
-  ctx->curr_rept->counter = 0;
-  ctx->curr_rept->start_iter = loop_iter;
-  ctx->curr_rept->var = rept->var;
+  rept_ctx_t *rept_ctx = (rept_ctx_t *)xmalloc(sizeof(rept_ctx_t));
+  rept_ctx->count = count_value->ival;
+  rept_ctx->counter = 0;
+  rept_ctx->start_iter = loop_iter;
+  rept_ctx->varname = NULL;
+  rept_ctx->rept_node_line = rept->line;
 
   if (rept->var) {
     void *existing_var = get_sym_variable(ctx, rept->var->name, true);
     if (existing_var != NULL)
       report_error(ctx, "can't redefine variable %s in REPT block", rept->var->name);
 
-    add_sym_variable_integer(ctx, rept->var->name, ctx->curr_rept->counter);
+    add_sym_variable_integer(ctx, rept->var->name, rept_ctx->counter);
+    rept_ctx->varname = xstrdup(rept->var->name);
   }
+
+  // add new REPT block context
+  ctx->repts = dynarray_append_ptr(ctx->repts, rept_ctx);
 }
 
 static bool compile_endr(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, ENDR *endr, int *loop_iter)
 {
-  if (ctx->curr_rept == NULL)
+  if (dynarray_length(ctx->repts) == 0)
     report_error(ctx, "found ENDR directive outside of REPT block");
 
-  if (ctx->curr_rept->counter < ctx->curr_rept->count - 1) {
-    // rewind parse list foreach to first block statement
-    ctx->curr_rept->counter++;
+  // use top REPT block context
+  rept_ctx_t *rept_ctx = (rept_ctx_t *)dfirst(dynarray_last_cell(ctx->repts));
 
-    if (ctx->curr_rept->var) {
-      LITERAL *counter_var = get_sym_variable(ctx, ctx->curr_rept->var->name, true);
+  if (rept_ctx->counter < rept_ctx->count - 1) {
+    // rewind parse list foreach to first block statement
+    rept_ctx->counter++;
+
+    if (rept_ctx->varname) {
+      LITERAL *counter_var = (LITERAL *)get_sym_variable(ctx, rept_ctx->varname, true);
       assert(counter_var);
 
-      counter_var->ival = ctx->curr_rept->counter;
+      counter_var->ival = rept_ctx->counter;
     }
 
-    *loop_iter = ctx->curr_rept->start_iter;
+    *loop_iter = rept_ctx->start_iter;
+
     return true;
   }
 
   // repitition finished, stop looping and destroy context
-  if (ctx->curr_rept->var)
-    remove_sym_variable(ctx, ctx->curr_rept->var->name);
-  xfree(ctx->curr_rept);
-  ctx->curr_rept = NULL;
+  if (rept_ctx->varname) {
+    LITERAL *l = (LITERAL *)remove_sym_variable(ctx, rept_ctx->varname);
+    if (l)
+      xfree(l);
+  }
+
+  dynarray_remove_last_cell(ctx->repts);
+  xfree(rept_ctx);
 
   return false;
 }
@@ -420,7 +438,6 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse)
   compile_ctx.sna_generic = desc->sna_generic;
   compile_ctx.sna_pc_addr = desc->sna_pc_addr;
   compile_ctx.sna_ramtop = desc->sna_ramtop;
-  compile_ctx.lookup_rept_iter_id = -1;
 
   render_start(&compile_ctx);
 
@@ -491,6 +508,18 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse)
     profile_end(&compile_ctx, true, "EOF", desc->profile_data);
   }
 
+  if (dynarray_length(compile_ctx.repts) > 0) {
+    int saved_line = compile_ctx.node->line;
+
+    rept_ctx_t *unterm_rept_ctx = (rept_ctx_t *)dfirst(dynarray_last_cell(compile_ctx.repts));
+    compile_ctx.node->line = unterm_rept_ctx->rept_node_line;
+
+    generic_report_error(compile_ctx.verbose_error ? (ERROR_OUT_LOC | ERROR_OUT_LINE) : 0,
+      compile_ctx.node->fn, compile_ctx.node->line - 1, 0, "unterminated REPT block");
+
+    compile_ctx.node->line = saved_line;
+  }
+
   // ==================================================================================================
   // 2nd pass: patch code with unresolved constants values as soon as symtab is fully populated now
   // ==================================================================================================
@@ -498,9 +527,9 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse)
   foreach(dc, compile_ctx.patches) {
     patch_t *patch = (patch_t *)dfirst(dc);
 
-    compile_ctx.lookup_rept_iter_id = patch->rept_iter_id;
+    compile_ctx.lookup_rept_suffix = patch->rept_suffix;
     parse_node *resolved_node = expr_eval(&compile_ctx, patch->node, NULL);
-    compile_ctx.lookup_rept_iter_id = -1;
+    compile_ctx.lookup_rept_suffix = NULL;
 
     if (resolved_node->type != NODE_LITERAL) {
       parse_node *saved_node = compile_ctx.node;
@@ -554,7 +583,23 @@ void register_fwd_lookup(compile_ctx_t *ctx,
   patch->relative = relative;
   patch->instr_pc = instr_pc;
   patch->section_id = ctx->curr_section_id;
-  patch->rept_iter_id = ctx->curr_rept ? ctx->curr_rept->counter : -1;
+  patch->rept_suffix = NULL;
+
+  if (dynarray_length(ctx->repts) > 0) {
+    dynarray_cell *dc;
+
+    foreach(dc, ctx->repts) {
+      rept_ctx_t *rept_ctx = (rept_ctx_t *)dfirst(dc);
+
+      if (patch->rept_suffix == NULL) {
+        patch->rept_suffix = bsprintf("%d", rept_ctx->counter);
+      } else {
+        char *tmp = patch->rept_suffix;
+        patch->rept_suffix = bsprintf("%s#%d", patch->rept_suffix, rept_ctx->counter);
+        xfree(tmp);
+      }
+    }
+  }
 
   ctx->patches = dynarray_append_ptr(ctx->patches, patch);
 }

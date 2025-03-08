@@ -318,6 +318,8 @@ static void node_to_string_recurse(parse_node *node, buffer *buf) {
     }
     case NODE_LITERAL: {
       LITERAL *l = (LITERAL *)node;
+      buffer_append(buf, "LITERAL ");
+
       if (l->is_ref)
         buffer_append(buf, "(");
 
@@ -434,6 +436,7 @@ static void node_to_string_recurse(parse_node *node, buffer *buf) {
     }
     case NODE_ID: {
       ID *l = (ID *)node;
+      buffer_append(buf, "ID ");
       if (l->is_ref)
         buffer_append(buf, "(");
 

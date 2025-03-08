@@ -76,3 +76,4 @@ extern void dynarray_free_deep(dynarray *darray);
 extern int dynarray_length(const dynarray *d);
 extern dynarray_cell *dynarray_nth_cell(const dynarray *darray, int n);
 extern dynarray_cell *dynarray_last_cell(const dynarray *darray);
+extern void *dynarray_remove_last_cell(dynarray *darray);

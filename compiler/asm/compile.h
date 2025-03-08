@@ -23,7 +23,8 @@ typedef struct {
   int start_iter;
   int count;
   int counter;
-  ID *var;
+  char *varname;
+  int rept_node_line;
 } rept_ctx_t;
 
 typedef struct {
@@ -46,8 +47,9 @@ typedef struct {
   error_callback_type error_cb;
   warning_callback_type warning_cb;
   jmp_buf *error_jmp_env;
-  rept_ctx_t *curr_rept;
-  int lookup_rept_iter_id;
+
+  dynarray *repts;
+  char *lookup_rept_suffix;
 
   bool in_profile;
   profile_data_t current_profile;
@@ -61,7 +63,7 @@ typedef struct {
   bool relative;
   uint32_t instr_pc;
   int section_id;
-  int rept_iter_id;
+  char *rept_suffix;
 } patch_t;
 
 #define report_error(ctx, fmt, ...) \
@@ -88,7 +90,7 @@ typedef struct {
 
 extern parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool *literal_evals);
 extern int compile(struct libasm_as_desc_t *desc, dynarray *parse);
-extern void compile_instruction_impl(compile_ctx_t *ctx, char *name, LIST *args);
+extern void compile_instruction_impl(compile_ctx_t *ctx, char *name, dynarray *args);
 extern void register_fwd_lookup(compile_ctx_t *ctx,
                           parse_node *unresolved_node,
                           uint32_t pos,
@@ -99,7 +101,7 @@ extern void register_fwd_lookup(compile_ctx_t *ctx,
 extern hashmap *make_symtab(hashmap *defineopts);
 extern parse_node *add_sym_variable_node(compile_ctx_t *ctx, const char *name, parse_node *value);
 extern parse_node *add_sym_variable_integer(compile_ctx_t *ctx, const char *name, int ival);
-extern LITERAL *get_sym_variable(compile_ctx_t *ctx, const char *name, bool missing_ok);
-extern void remove_sym_variable(compile_ctx_t *ctx, const char *name);
+extern parse_node *get_sym_variable(compile_ctx_t *ctx, const char *name, bool missing_ok);
+extern parse_node *remove_sym_variable(compile_ctx_t *ctx, const char *name);
 
 extern bool is_reserved_ident(const char *id);
