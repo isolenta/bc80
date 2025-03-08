@@ -20,6 +20,7 @@ static char *reserved_ids[] = {
 
   "ORG", "REPT", "ENDR", "PROFILE", "ENDPROFILE", "EQU", "END", "DB", "DW", "DS",
   "DM", "DEFB", "DEFW", "DEFS", "DEFM", "INCBIN", "INCLUDE", "SECTION",
+  "IF", "ELSE", "ENDIF",
   NULL};
 
 bool is_reserved_ident(const char *id)

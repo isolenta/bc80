@@ -10,6 +10,7 @@ set(ASM_C_SOURCES
   instruction.c
   libasm.c
   parse.c
+  parse_dump.c
   render.c
   render_elf.c
   render_sna.c

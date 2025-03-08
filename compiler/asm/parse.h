@@ -262,12 +262,15 @@ struct as_scanner_state {
 #define IS_INT_LITERAL(node) \
     ((node->type == NODE_LITERAL) && (((LITERAL *)node)->kind == INT))
 
+extern int parse_source(struct libasm_as_desc_t *desc, dynarray **statements);
+extern int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *filename);
+
+extern int parse_decnum(struct libasm_as_desc_t *desc, char *text, int len);
+extern int parse_hexnum(struct libasm_as_desc_t *desc, char *text, int len);
+extern int parse_binnum(struct libasm_as_desc_t *desc, char *text, int len);
+
 extern void print_node(parse_node *node);
 extern char *node_to_string(parse_node *node);
-extern int parse_integer(struct libasm_as_desc_t *desc, char *text, int len, int base, char suffix);
-extern int parse_binary(struct libasm_as_desc_t *desc, char *text, int len);
-extern int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *filename);
-extern void parse_print(dynarray *statements);
-extern int parse_string(struct libasm_as_desc_t *desc, dynarray **statements);
+extern void dump_parse_list(dynarray *statements);
 extern const char *get_parse_node_name(parse_node *node);
 extern const char *get_literal_kind(LITERAL *l);

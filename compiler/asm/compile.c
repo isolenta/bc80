@@ -332,7 +332,6 @@ static void compile_instr(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, INS
       if (is_ref && literal_evals)
         report_warning(ctx, "argument with external parentheses is interpreted as an address");
     }
-
   }
 
   compile_instruction_impl(ctx, name, arglist);

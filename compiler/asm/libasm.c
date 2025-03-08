@@ -12,7 +12,7 @@ int libasm_as(struct libasm_as_desc_t *desc) {
 
   assert(desc);
 
-  result = parse_string(desc, &parse);
+  result = parse_source(desc, &parse);
   if (result != 0)
     return result;
 

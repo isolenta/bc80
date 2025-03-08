@@ -20,6 +20,17 @@
         desc->filename, yylloc.first_line + 1, 0,
         (char *) msg);
     }
+
+    #define RULE_EXPRESSION(target, _kind, _left, _right, _line, _column)  \
+      do {                                                                 \
+        EXPR *l = make_node(EXPR, desc->filename, _line, _column);         \
+        l->kind = _kind;                                                   \
+        l->is_ref = false;                                                 \
+        l->left = _left;                                                   \
+        l->right = _right;                                                 \
+        target = (parse_node *)l;                                          \
+      } while (0)
+
 %}
 
 %lex-param {void* scanner}{struct libasm_as_desc_t *desc}
@@ -103,152 +114,62 @@ simple_expr
 unary_expr
       : simple_expr { $$ = $1; }
       | T_PLUS unary_expr {
-        EXPR *l = make_node(EXPR, desc->filename, @2.first_line, @1.first_column);
-        l->kind = UNARY_PLUS;
-        l->is_ref = false;
-        l->left = $2;
-        l->right = NULL;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, UNARY_PLUS, $2, NULL, @1.first_line, @1.first_column);
       }
       | T_MINUS unary_expr {
-        EXPR *l = make_node(EXPR, desc->filename, @2.first_line, @1.first_column);
-        l->kind = UNARY_MINUS;
-        l->is_ref = false;
-        l->left = $2;
-        l->right = NULL;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, UNARY_MINUS, $2, NULL, @1.first_line, @1.first_column);
       }
       | T_NOT unary_expr {
-        EXPR *l = make_node(EXPR, desc->filename, @2.first_line, @1.first_column);
-        l->kind = UNARY_NOT;
-        l->is_ref = false;
-        l->left = $2;
-        l->right = NULL;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, UNARY_NOT, $2, NULL, @1.first_line, @1.first_column);
       }
       ;
 
 expr
       : unary_expr { $$ = $1; }
       | expr T_PLUS expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = BINARY_PLUS;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, BINARY_PLUS, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_MINUS expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = BINARY_MINUS;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, BINARY_MINUS, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_MUL expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = BINARY_MUL;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, BINARY_MUL, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_DIV expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = BINARY_DIV;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, BINARY_DIV, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_AND expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = BINARY_AND;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, BINARY_AND, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_OR expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = BINARY_OR;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, BINARY_OR, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_PERCENT expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = BINARY_MOD;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, BINARY_MOD, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_SHL expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = BINARY_SHL;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, BINARY_SHL, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_SHR expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = BINARY_SHR;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, BINARY_SHR, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_EQ expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = COND_EQ;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, COND_EQ, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_NE expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = COND_NE;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, COND_NE, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_LT expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = COND_LT;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, COND_LT, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_LE expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = COND_LE;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, COND_LE, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_GT expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = COND_GT;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, COND_GT, $1, $3, @1.first_line, @1.first_column);
       }
       | expr T_GE expr {
-        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
-        l->kind = COND_GE;
-        l->is_ref = false;
-        l->left = $1;
-        l->right = $3;
-        $$ = (parse_node *)l;
+        RULE_EXPRESSION($$, COND_GE, $1, $3, @1.first_line, @1.first_column);
       }
       ;
 

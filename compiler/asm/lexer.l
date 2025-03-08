@@ -126,19 +126,19 @@ intnum  ({decnum}|{hexnum}|{binnum})
 }
 
 {decnum}  {
-  yylval.ival = parse_integer(desc, yytext, yyleng, 10, 'd');
+  yylval.ival = parse_decnum(desc, yytext, yyleng);
   ADVANCE_POS;
   return T_INT;
 }
 
 {hexnum}  {
-  yylval.ival = parse_integer(desc, yytext, yyleng, 16, 'h');
+  yylval.ival = parse_hexnum(desc, yytext, yyleng);
   ADVANCE_POS;
   return T_INT;
 }
 
 {binnum}  {
-  yylval.ival = parse_binary(desc, yytext, yyleng);
+  yylval.ival = parse_binnum(desc, yytext, yyleng);
   ADVANCE_POS;
   return T_INT;
 }
