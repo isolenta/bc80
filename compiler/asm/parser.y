@@ -38,7 +38,8 @@
 %token <ival> T_INT
 %token T_DOLLAR T_LPAR T_RPAR T_MINUS T_PLUS T_MUL T_DIV T_COMMA T_COLON T_ORG T_EQU T_END T_DB
 %token T_DM T_DW T_DS T_INCBIN T_INCLUDE T_NOT T_AND T_OR T_NL T_SECTION T_PERCENT T_SHL T_SHR
-%token T_REPT T_ENDR T_PROFILE T_ENDPROFILE
+%token T_REPT T_ENDR T_PROFILE T_ENDPROFILE T_IF T_ELSE T_ENDIF
+%token T_EQ T_NE T_LT T_LE T_GT T_GE
 
 %type <node> id str integer dollar simple_expr unary_expr expr exprlist keyvalue kvlist
 
@@ -201,6 +202,55 @@ expr
         l->right = $3;
         $$ = (parse_node *)l;
       }
+      | expr T_EQ expr {
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
+        l->kind = COND_EQ;
+        l->is_ref = false;
+        l->left = $1;
+        l->right = $3;
+        $$ = (parse_node *)l;
+      }
+      | expr T_NE expr {
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
+        l->kind = COND_NE;
+        l->is_ref = false;
+        l->left = $1;
+        l->right = $3;
+        $$ = (parse_node *)l;
+      }
+      | expr T_LT expr {
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
+        l->kind = COND_LT;
+        l->is_ref = false;
+        l->left = $1;
+        l->right = $3;
+        $$ = (parse_node *)l;
+      }
+      | expr T_LE expr {
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
+        l->kind = COND_LE;
+        l->is_ref = false;
+        l->left = $1;
+        l->right = $3;
+        $$ = (parse_node *)l;
+      }
+      | expr T_GT expr {
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
+        l->kind = COND_GT;
+        l->is_ref = false;
+        l->left = $1;
+        l->right = $3;
+        $$ = (parse_node *)l;
+      }
+      | expr T_GE expr {
+        EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
+        l->kind = COND_GE;
+        l->is_ref = false;
+        l->left = $1;
+        l->right = $3;
+        $$ = (parse_node *)l;
+      }
+      ;
 
 exprlist
       : expr {
@@ -279,6 +329,19 @@ stmt
       }
       | T_ENDPROFILE {
         ENDPROFILE *l = make_node(ENDPROFILE, desc->filename, @1.first_line, @1.first_column);
+        *statements = dynarray_append_ptr(*statements, l);
+      }
+      | T_IF expr {
+        IF *l = make_node(IF, desc->filename, @1.first_line, @1.first_column);
+        l->condition = (EXPR *)$2;
+        *statements = dynarray_append_ptr(*statements, l);
+      }
+      | T_ELSE {
+        ELSE *l = make_node(ELSE, desc->filename, @1.first_line, @1.first_column);
+        *statements = dynarray_append_ptr(*statements, l);
+      }
+      | T_ENDIF {
+        ENDIF *l = make_node(ENDIF, desc->filename, @1.first_line, @1.first_column);
         *statements = dynarray_append_ptr(*statements, l);
       }
       | id T_COLON T_EQU expr {

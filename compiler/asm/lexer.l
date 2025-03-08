@@ -86,6 +86,9 @@ intnum  ({decnum}|{hexnum}|{binnum})
 (?i:endr)       { ADVANCE_POS; return T_ENDR; }
 (?i:profile)    { ADVANCE_POS; return T_PROFILE; }
 (?i:endprofile) { ADVANCE_POS; return T_ENDPROFILE; }
+(?i:if)         { ADVANCE_POS; return T_IF; }
+(?i:else)       { ADVANCE_POS; return T_ELSE; }
+(?i:endif)      { ADVANCE_POS; return T_ENDIF; }
 (?i:equ)        { ADVANCE_POS; return T_EQU; }
 "="             { ADVANCE_POS; return T_EQU; }
 (?i:end)        { ADVANCE_POS; return T_END; }
@@ -155,6 +158,12 @@ intnum  ({decnum}|{hexnum}|{binnum})
 "%"    {   ADVANCE_POS; return T_PERCENT; }
 "<<"   {   ADVANCE_POS; return T_SHL; }
 ">>"   {   ADVANCE_POS; return T_SHR; }
+"=="   {   ADVANCE_POS; return T_EQ; }
+"!="   {   ADVANCE_POS; return T_NE; }
+"<"    {   ADVANCE_POS; return T_LT; }
+"<="   {   ADVANCE_POS; return T_LE; }
+">"    {   ADVANCE_POS; return T_GT; }
+">="   {   ADVANCE_POS; return T_GE; }
 
 .      {   ADVANCE_POS; return *yytext; }
 

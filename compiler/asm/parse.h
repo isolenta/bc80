@@ -25,6 +25,9 @@ typedef enum parse_type
   NODE_ENDR,
   NODE_PROFILE,
   NODE_ENDPROFILE,
+  NODE_IF,
+  NODE_ELSE,
+  NODE_ENDIF,
 } parse_type;
 
 typedef struct {
@@ -109,6 +112,12 @@ typedef enum
   BINARY_MOD,
   BINARY_SHL,
   BINARY_SHR,
+  COND_EQ,
+  COND_NE,
+  COND_LT,
+  COND_LE,
+  COND_GT,
+  COND_GE,
 } exprkind;
 
 typedef struct {
@@ -203,6 +212,28 @@ typedef struct {
   uint32_t pos;
   const char *fn;
 } ENDPROFILE;
+
+typedef struct {
+  parse_type type;
+  uint32_t line;
+  uint32_t pos;
+  const char *fn;
+  EXPR *condition;
+} IF;
+
+typedef struct {
+  parse_type type;
+  uint32_t line;
+  uint32_t pos;
+  const char *fn;
+} ELSE;
+
+typedef struct {
+  parse_type type;
+  uint32_t line;
+  uint32_t pos;
+  const char *fn;
+} ENDIF;
 
 extern parse_node *new_node_macro_holder;
 

@@ -217,6 +217,24 @@ void print_node(parse_node *node) {
         case BINARY_SHR:
           printf("shr ");
           break;
+        case COND_EQ:
+          printf("== ");
+          break;
+        case COND_NE:
+          printf("!= ");
+          break;
+        case COND_LT:
+          printf("< ");
+          break;
+        case COND_LE:
+          printf("<= ");
+          break;
+        case COND_GT:
+          printf("> ");
+          break;
+        case COND_GE:
+          printf(">= ");
+          break;
         default:
           break;
       }
@@ -423,6 +441,36 @@ static void node_to_string_recurse(parse_node *node, buffer *buf) {
         case BINARY_SHR:
           node_to_string_recurse(l->left, buf);
           buffer_append(buf, " >> ");
+          node_to_string_recurse(l->right, buf);
+          break;
+        case COND_EQ:
+          node_to_string_recurse(l->left, buf);
+          buffer_append(buf, " == ");
+          node_to_string_recurse(l->right, buf);
+          break;
+        case COND_NE:
+          node_to_string_recurse(l->left, buf);
+          buffer_append(buf, " != ");
+          node_to_string_recurse(l->right, buf);
+          break;
+        case COND_LT:
+          node_to_string_recurse(l->left, buf);
+          buffer_append(buf, " < ");
+          node_to_string_recurse(l->right, buf);
+          break;
+        case COND_LE:
+          node_to_string_recurse(l->left, buf);
+          buffer_append(buf, " <= ");
+          node_to_string_recurse(l->right, buf);
+          break;
+        case COND_GT:
+          node_to_string_recurse(l->left, buf);
+          buffer_append(buf, " > ");
+          node_to_string_recurse(l->right, buf);
+          break;
+        case COND_GE:
+          node_to_string_recurse(l->left, buf);
+          buffer_append(buf, " >= ");
           node_to_string_recurse(l->right, buf);
           break;
         default:

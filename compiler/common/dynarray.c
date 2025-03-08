@@ -202,12 +202,12 @@ int dynarray_length(const dynarray *d)
 // don't performs array compaction.
 // don't frees entry data itself.
 // returns pointer to removed element.
-void *dynarray_remove_last_cell(dynarray *darray)
+dynarray_cell *dynarray_remove_last_cell(dynarray *darray)
 {
   if (dynarray_length(darray) == 0)
     return NULL;
 
-  void *retval = &darray->elements[darray->length - 1];
+  dynarray_cell *retval = &darray->elements[darray->length - 1];
 
   --(darray->length);
 

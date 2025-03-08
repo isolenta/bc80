@@ -252,6 +252,96 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool *literal_evals)
     } else {
       return node;
     }
+  } else if (expr->kind == COND_EQ) {
+    parse_node *arg1 = expr_eval(ctx, expr->left, literal_evals);
+    parse_node *arg2 = expr_eval(ctx, expr->right, literal_evals);
+
+    if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
+      LITERAL *result = make_node_internal(LITERAL);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)arg1)->ival == ((LITERAL *)arg2)->ival;
+      if (literal_evals)
+        *literal_evals = true;
+      return (parse_node *)result;
+    } else {
+      return node;
+    }
+  } else if (expr->kind == COND_NE) {
+    parse_node *arg1 = expr_eval(ctx, expr->left, literal_evals);
+    parse_node *arg2 = expr_eval(ctx, expr->right, literal_evals);
+
+    if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
+      LITERAL *result = make_node_internal(LITERAL);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)arg1)->ival != ((LITERAL *)arg2)->ival;
+      if (literal_evals)
+        *literal_evals = true;
+      return (parse_node *)result;
+    } else {
+      return node;
+    }
+  } else if (expr->kind == COND_LT) {
+    parse_node *arg1 = expr_eval(ctx, expr->left, literal_evals);
+    parse_node *arg2 = expr_eval(ctx, expr->right, literal_evals);
+
+    if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
+      LITERAL *result = make_node_internal(LITERAL);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)arg1)->ival < ((LITERAL *)arg2)->ival;
+      if (literal_evals)
+        *literal_evals = true;
+      return (parse_node *)result;
+    } else {
+      return node;
+    }
+  } else if (expr->kind == COND_LE) {
+    parse_node *arg1 = expr_eval(ctx, expr->left, literal_evals);
+    parse_node *arg2 = expr_eval(ctx, expr->right, literal_evals);
+
+    if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
+      LITERAL *result = make_node_internal(LITERAL);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)arg1)->ival <= ((LITERAL *)arg2)->ival;
+      if (literal_evals)
+        *literal_evals = true;
+      return (parse_node *)result;
+    } else {
+      return node;
+    }
+  } else if (expr->kind == COND_GT) {
+    parse_node *arg1 = expr_eval(ctx, expr->left, literal_evals);
+    parse_node *arg2 = expr_eval(ctx, expr->right, literal_evals);
+
+    if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
+      LITERAL *result = make_node_internal(LITERAL);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)arg1)->ival > ((LITERAL *)arg2)->ival;
+      if (literal_evals)
+        *literal_evals = true;
+      return (parse_node *)result;
+    } else {
+      return node;
+    }
+  } else if (expr->kind == COND_GE) {
+    parse_node *arg1 = expr_eval(ctx, expr->left, literal_evals);
+    parse_node *arg2 = expr_eval(ctx, expr->right, literal_evals);
+
+    if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
+      LITERAL *result = make_node_internal(LITERAL);
+      result->kind = INT;
+      result->is_ref = expr->is_ref;
+      result->ival = ((LITERAL *)arg1)->ival >= ((LITERAL *)arg2)->ival;
+      if (literal_evals)
+        *literal_evals = true;
+      return (parse_node *)result;
+    } else {
+      return node;
+    }
   }
 
   return node;

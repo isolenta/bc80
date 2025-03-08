@@ -33,6 +33,13 @@ typedef struct {
 } profile_data_t;
 
 typedef struct {
+  EXPR *expr;
+  bool cond_value;
+  bool inverse;
+  int if_node_line;
+} condition_ctx_t;
+
+typedef struct {
   parse_node *node;
   dynarray *patches;
   hashmap *symtab;
@@ -50,6 +57,8 @@ typedef struct {
 
   dynarray *repts;
   char *lookup_rept_suffix;
+
+  dynarray *conditions;
 
   bool in_profile;
   profile_data_t current_profile;

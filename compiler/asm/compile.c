@@ -424,6 +424,57 @@ static void compile_endprofile(compile_ctx_t *ctx, struct libasm_as_desc_t *desc
     profile_end(ctx, false, NULL, true);
 }
 
+static void compile_if(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, IF *node_if)
+{
+  LITERAL *condition = (LITERAL *)expr_eval(ctx, (parse_node *)node_if->condition, NULL);
+  if (!IS_INT_LITERAL(condition))
+    report_error(ctx, "can't evaluate IF condition");
+
+  condition_ctx_t *condition_ctx = (condition_ctx_t *)xmalloc(sizeof(condition_ctx_t));
+  condition_ctx->expr = node_if->condition;
+  condition_ctx->cond_value = (bool)(condition->ival);
+  condition_ctx->inverse = false;
+  condition_ctx->if_node_line = node_if->line;
+
+  ctx->conditions = dynarray_append_ptr(ctx->conditions, condition_ctx);
+}
+
+static void compile_else(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, ELSE *node_else)
+{
+  if (dynarray_length(ctx->conditions) == 0)
+    report_error(ctx, "found ELSE without IF");
+
+  condition_ctx_t *last_condition_ctx = (condition_ctx_t *)dfirst(dynarray_last_cell(ctx->conditions));
+  if (last_condition_ctx->inverse == true)
+    report_error(ctx, "multiple ELSE are not allowed");
+
+  last_condition_ctx->inverse = true;
+  last_condition_ctx->cond_value = !last_condition_ctx->cond_value;
+}
+
+static void compile_endif(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, ENDIF *node_endif)
+{
+  if (dynarray_length(ctx->conditions) == 0)
+    report_error(ctx, "found ENDIF without IF");
+
+  condition_ctx_t *last_condition_ctx = (condition_ctx_t *)dfirst(dynarray_remove_last_cell(ctx->conditions));
+  xfree(last_condition_ctx);
+}
+
+static bool condition_allow(compile_ctx_t *ctx)
+{
+  int num_conditions = dynarray_length(ctx->conditions);
+
+  // no conditions exists: allow to compile all
+  if (num_conditions == 0)
+    return true;
+
+  // we should check only last condition in the stack, because we couldn't
+  // reach nested 'if' when outer condition block was disallowed
+  condition_ctx_t *last_condition_ctx = (condition_ctx_t *)dfirst(dynarray_last_cell(ctx->conditions));
+  return last_condition_ctx->cond_value;
+}
+
 int compile(struct libasm_as_desc_t *desc, dynarray *parse)
 {
   dynarray_cell *dc = NULL;
@@ -448,6 +499,13 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse)
   foreach(dc, parse) {
     parse_node *node = (parse_node *)dfirst(dc);
     compile_ctx.node = node;
+
+    // if current condition state is false, skip all statement except 'else' of 'endif'
+    if (!condition_allow(&compile_ctx) &&
+      !(node->type == NODE_ELSE || node->type == NODE_ENDIF))
+    {
+      continue;
+    }
 
     switch (node->type) {
       case NODE_EQU:
@@ -495,6 +553,17 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse)
         compile_endprofile(&compile_ctx, desc, (ENDPROFILE *)node);
         break;
 
+      case NODE_IF:
+        compile_if(&compile_ctx, desc, (IF *)node);
+        break;
+
+      case NODE_ELSE:
+        compile_else(&compile_ctx, desc, (ELSE *)node);
+        break;
+
+      case NODE_ENDIF:
+        compile_endif(&compile_ctx, desc, (ENDIF *)node);
+        break;
       default:
         break;
     }
@@ -519,6 +588,19 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse)
 
     compile_ctx.node->line = saved_line;
   }
+
+  if (dynarray_length(compile_ctx.conditions) > 0) {
+    int saved_line = compile_ctx.node->line;
+
+    condition_ctx_t *unterm_cond_ctx = (condition_ctx_t *)dfirst(dynarray_last_cell(compile_ctx.conditions));
+    compile_ctx.node->line = unterm_cond_ctx->if_node_line;
+
+    generic_report_error(compile_ctx.verbose_error ? (ERROR_OUT_LOC | ERROR_OUT_LINE) : 0,
+      compile_ctx.node->fn, compile_ctx.node->line - 1, 0, "unterminated IF block");
+
+    compile_ctx.node->line = saved_line;
+  }
+
 
   // ==================================================================================================
   // 2nd pass: patch code with unresolved constants values as soon as symtab is fully populated now
