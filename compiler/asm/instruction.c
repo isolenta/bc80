@@ -54,9 +54,12 @@ static inline void check_integer_overflow(compile_ctx_t *ctx, int value, int nby
     mask = 0xffff;
   }
 
-  if (value & ~mask)
+  if ((value & ~mask) &&
+    ((value & ~mask) != ((unsigned)-1 & ~mask)))
+  {
     report_warning(ctx, "%s value %d (0x%x) truncated",
       msg, value, value);
+  }
 }
 
 static inline void check_reljump_overflow(compile_ctx_t *ctx, int value, char *instr_name)
