@@ -80,7 +80,7 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node)
   // try to resolve (replace to literal) identifier via symtab
   if (node->type == NODE_ID) {
     ID *id = (ID *)node;
-    parse_node *nval = hashmap_search(ctx->symtab, id->name, HASHMAP_FIND, NULL);
+    parse_node *nval = hashmap_get(ctx->symtab, id->name);
     if (nval) {
       if (nval->type == NODE_LITERAL)
         nval->is_ref = id->hdr.is_ref;
@@ -90,7 +90,7 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node)
       // Try to resolve it as suffixed label
       if (ctx->lookup_rept_suffix) {
         char *suffixed_name = bsprintf("%s#%s", id->name, ctx->lookup_rept_suffix);
-        parse_node *nval2 = hashmap_search(ctx->symtab, suffixed_name, HASHMAP_FIND, NULL);
+        parse_node *nval2 = hashmap_get(ctx->symtab, suffixed_name);
         if (nval2) {
           if (nval2->type == NODE_LITERAL)
             nval2->is_ref = id->hdr.is_ref;

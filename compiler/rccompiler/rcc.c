@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
 
         char *value = (dynarray_length(kvparts) == 1) ? "" : dsecond(kvparts);
 
-        hashmap_search(context.constants, key, HASHMAP_INSERT, xstrdup(value));
+        hashmap_set(context.constants, key, xstrdup(value));
         break;
       }
 

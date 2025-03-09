@@ -17,16 +17,13 @@ void declare_type(hashmap *decls_hm,
   typ->size = size;
   typ->kind = kind;
   typ->size_is_ambiguous = false;
-  hashmap_search(decls_hm, typ->name, HASHMAP_INSERT, typ);
+  hashmap_set(decls_hm, typ->name, typ);
 }
 
 // name is optional, only for structs
 type_decl_t *get_type_decl(rcc_ctx_t *ctx, SymbolTypeKind kind, char *name)
 {
-  type_decl_t *type_decl = hashmap_search(ctx->type_decls,
-                                          (kind == TYPE_STRUCT) ? name : (char *)symbol_type_kind(kind),
-                                          HASHMAP_FIND,
-                                          NULL);
+  type_decl_t *type_decl = hashmap_get(ctx->type_decls, (kind == TYPE_STRUCT) ? name : (char *)symbol_type_kind(kind));
   if (type_decl == NULL)
     report_error(ctx, "undeclared type '%s%s'",
       (kind == TYPE_STRUCT) ? "struct " : "",

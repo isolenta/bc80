@@ -78,15 +78,16 @@ void hashmap_set_functions(hashmap *hm,
   hm->hash_fn = hash_fn;
 }
 
-void *hashmap_search(hashmap *hm, void *key, int op, void *value) {
-  assert((op == HASHMAP_FIND) || (op == HASHMAP_REMOVE) || (op == HASHMAP_INSERT));
+static void *hashmap_access_impl(hashmap *hm, void *key, int op, void *value)
+{
+  assert((op == HASHMAP_OP_SEARCH) || (op == HASHMAP_OP_INSERT) || (op == HASHMAP_OP_REMOVE));
 
   uint32_t hash = hm->hash_fn(hm, key);
   hashmap_entry *entry = &hm->hashtab[hash % hm->num_entries];
 
   if (entry->key == NULL) {
     // empty bucket => nothing found for this key
-    if ((op == HASHMAP_FIND) || (op == HASHMAP_REMOVE))
+    if ((op == HASHMAP_OP_SEARCH) || (op == HASHMAP_OP_REMOVE))
       return NULL;
 
     // for HASHMAP_INSERT just place the value here
@@ -98,10 +99,10 @@ void *hashmap_search(hashmap *hm, void *key, int op, void *value) {
     // bucket is already occupied
     if (hm->key_compare_fn(hm, entry->key, key) == 0) {
       // we are found our key
-      if (op == HASHMAP_FIND)
+      if (op == HASHMAP_OP_SEARCH)
         return entry->value;
 
-      if (op == HASHMAP_REMOVE) {
+      if (op == HASHMAP_OP_REMOVE) {
         void *old_value = entry->value;
         if (entry->next != NULL) {
           hashmap_entry *tmp_entry = entry->next;
@@ -132,11 +133,11 @@ void *hashmap_search(hashmap *hm, void *key, int op, void *value) {
         entry = entry->next;
         if (hm->key_compare_fn(hm, entry->key, key) == 0) {
           // we are found our key
-          if (op == HASHMAP_FIND) {
+          if (op == HASHMAP_OP_SEARCH) {
             return entry->value;
           }
 
-          if (op == HASHMAP_REMOVE) {
+          if (op == HASHMAP_OP_REMOVE) {
             void *old_value = entry->value;
             hm->free_fn(hm, entry->key);
 
@@ -154,7 +155,7 @@ void *hashmap_search(hashmap *hm, void *key, int op, void *value) {
       }
 
       // nothing found in the list
-      if ((op == HASHMAP_FIND) || (op == HASHMAP_REMOVE))
+      if ((op == HASHMAP_OP_SEARCH) || (op == HASHMAP_OP_REMOVE))
         return NULL;
 
       // for HASHMAP_INSERT allocate new entry in the list and place value here
@@ -168,6 +169,21 @@ void *hashmap_search(hashmap *hm, void *key, int op, void *value) {
 
   assert(0);  // never reach here
   return NULL;
+}
+
+void *hashmap_get(hashmap *hm, void *key)
+{
+  return hashmap_access_impl(hm, key, HASHMAP_OP_SEARCH, NULL);
+}
+
+void *hashmap_set(hashmap *hm, void *key, void *value)
+{
+  return hashmap_access_impl(hm, key, HASHMAP_OP_INSERT, value);
+}
+
+void *hashmap_remove(hashmap *hm, void *key)
+{
+  return hashmap_access_impl(hm, key, HASHMAP_OP_REMOVE, NULL);
 }
 
 void hashmap_free(hashmap *hm) {

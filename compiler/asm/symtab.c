@@ -57,7 +57,7 @@ hashmap *make_symtab(hashmap *defineopts)
       l->strval = xstrdup(entry->value);
     }
 
-    hashmap_search(symtab, entry->key, HASHMAP_INSERT, l);
+    hashmap_set(symtab, entry->key, l);
   }
 
   return symtab;
@@ -68,7 +68,7 @@ parse_node *add_sym_variable_node(compile_ctx_t *ctx, const char *name, parse_no
   if (is_keyword(name))
     report_error(ctx, "can't redefine reserved identifier %s", name);
 
-  return hashmap_search(ctx->symtab, (void *)name, HASHMAP_INSERT, value);
+  return hashmap_set(ctx->symtab, (void *)name, value);
 }
 
 parse_node *add_sym_variable_integer(compile_ctx_t *ctx, const char *name, int ival)
@@ -83,7 +83,7 @@ parse_node *add_sym_variable_integer(compile_ctx_t *ctx, const char *name, int i
 
 parse_node *get_sym_variable(compile_ctx_t *ctx, const char *name, bool missing_ok)
 {
-  parse_node *node = hashmap_search(ctx->symtab, (void *)name, HASHMAP_FIND, NULL);
+  parse_node *node = hashmap_get(ctx->symtab, (void *)name);
   if (node == NULL) {
     if (missing_ok)
       return NULL;
@@ -98,5 +98,5 @@ parse_node *get_sym_variable(compile_ctx_t *ctx, const char *name, bool missing_
 
 parse_node *remove_sym_variable(compile_ctx_t *ctx, const char *name)
 {
-  return (parse_node *)hashmap_search(ctx->symtab, (void *)name, HASHMAP_REMOVE, NULL);
+  return (parse_node *)hashmap_remove(ctx->symtab, (void *)name);
 }

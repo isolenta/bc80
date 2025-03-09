@@ -3,9 +3,11 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define HASHMAP_FIND 0
-#define HASHMAP_INSERT 1
-#define HASHMAP_REMOVE 2
+enum {
+  HASHMAP_OP_SEARCH = 0,
+  HASHMAP_OP_INSERT,
+  HASHMAP_OP_REMOVE,
+};
 
 typedef struct hashmap_entry hashmap_entry;
 typedef struct hashmap hashmap;
@@ -46,13 +48,16 @@ typedef struct hashmap_scan
 extern hashmap *hashmap_create_ex(uint32_t num_entries, const char *name, alloc_fn_type alloc_fn, free_fn_type free_fn);
 #define hashmap_create(num_entries, name) hashmap_create_ex(num_entries, name, NULL, NULL)
 
+extern void *hashmap_get(hashmap *hm, void *key);
+extern void *hashmap_set(hashmap *hm, void *key, void *value);
+extern void *hashmap_remove(hashmap *hm, void *key);
+
 extern void hashmap_set_functions(hashmap *hm,
                                   alloc_fn_type alloc_fn,
                                   free_fn_type free_fn,
                                   key_copy_fn_type key_copy_fn,
                                   key_compare_fn_type key_compare_fn,
                                   hash_fn_type hash_fn);
-extern void *hashmap_search(hashmap *hm, void *key, int op, void *value);
 extern void hashmap_free(hashmap *hm);
 extern hashmap_scan *hashmap_scan_init(hashmap *hm);
 extern hashmap_entry *hashmap_scan_next(hashmap_scan *scan);

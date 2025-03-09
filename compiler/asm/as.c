@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
 
       case 'D': {
         dynarray *kvparts = split_string_sep(optarg, '=', true);
-        hashmap_search(defineopts, dinitial(kvparts), HASHMAP_INSERT,
+        hashmap_set(defineopts, dinitial(kvparts),
           (dynarray_length(kvparts) == 1) ? xstrdup("") : xstrdup(dsecond(kvparts)));
         break;
       }

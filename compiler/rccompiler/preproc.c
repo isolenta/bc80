@@ -107,7 +107,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
   assert(fullpath);
 
   // mark this file as already preprocessed
-  hashmap_search(ctx->pp_files, fullpath, HASHMAP_INSERT, XMMGR_DUMMY_PTR);
+  hashmap_set(ctx->pp_files, fullpath, XMMGR_DUMMY_PTR);
 
   ctx->current_position.filename = (char *)filename;
   sstate.rcc_ctx = ctx;
@@ -163,7 +163,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
           // if parent block's condition is positive or we're at the first level
           // of conditionals, set conditional state according directive expression
           char *id = get_current_token(scanner);
-          void *defined = hashmap_search(ctx->constants, id, HASHMAP_FIND, NULL);
+          void *defined = hashmap_get(ctx->constants, id);
           xfree(id);
 
           if ((token == PP_IFDEF) == (defined != NULL))
@@ -257,7 +257,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
         if (path == NULL)
           report_error(ctx, "file not found: %s", inc_filename);
 
-        void *already_processed = hashmap_search(ctx->pp_files, path, HASHMAP_FIND, NULL);
+        void *already_processed = hashmap_get(ctx->pp_files, path);
         if (!already_processed) {
           char *source = read_file(path);
           ctx->current_position.filename = path;
@@ -323,7 +323,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
           buffer_free(value_buf);
         }
 
-        hashmap_search(ctx->constants, key, HASHMAP_INSERT, value);
+        hashmap_set(ctx->constants, key, value);
         sstate.skipped = multiline_define;
 
         xfree(key);
@@ -374,7 +374,7 @@ static void scan_source(rcc_ctx_t *ctx, buffer *dest, const char *filename, cons
 
       case ID: {
         char *key = get_current_token(scanner);
-        char *value = (char *)hashmap_search(ctx->constants, key, HASHMAP_FIND, NULL);
+        char *value = (char *)hashmap_get(ctx->constants, key);
 
         // check_alter_position(dest, &sstate.skipped, filename, line_num);
 

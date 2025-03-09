@@ -73,7 +73,7 @@ void *xmalloc_(size_t size, const char *tag, const char *file, int line) {
   entry->file = file;
   entry->line = line;
   entry->tag = tag;
-  hashmap_search(allocations, &ptr, HASHMAP_INSERT, entry);
+  hashmap_set(allocations, &ptr, entry);
 
   stat_alloc_bytes += size;
   stat_num_allocs++;
@@ -86,7 +86,7 @@ void *xmalloc_(size_t size, const char *tag, const char *file, int line) {
 void *xrealloc_(void *ptr, size_t size, const char *tag, const char *file, int line) {
   void *newptr = realloc(ptr, size);
 
-  struct alloc_entry *entry = (struct alloc_entry *)hashmap_search(allocations, &ptr, HASHMAP_REMOVE, NULL);
+  struct alloc_entry *entry = (struct alloc_entry *)hashmap_remove(allocations, &ptr);
   assert(entry);
 
   stat_num_allocs++;
@@ -102,7 +102,7 @@ void *xrealloc_(void *ptr, size_t size, const char *tag, const char *file, int l
   entry->file = file;
   entry->line = line;
   entry->tag = tag;
-  hashmap_search(allocations, &newptr, HASHMAP_INSERT, entry);
+  hashmap_set(allocations, &newptr, entry);
 
   return newptr;
 }
@@ -114,7 +114,7 @@ void xfree_(void *ptr, const char *file, int line) {
   if (ptr == NULL || ptr == XMMGR_DUMMY_PTR)
     return;
 
-  struct alloc_entry *entry = (struct alloc_entry *)hashmap_search(allocations, &ptr, HASHMAP_REMOVE, NULL);
+  struct alloc_entry *entry = (struct alloc_entry *)hashmap_remove(allocations, &ptr);
   if (!entry)
     fprintf(stderr, "** attempt to free pointer that was not allocated: %p\n", ptr);
   assert(entry);

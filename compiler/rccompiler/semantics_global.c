@@ -125,7 +125,7 @@ static type_decl_t *capture_struct_declaration(rcc_ctx_t *ctx,
     report_error(ctx, "can't specify section for struct declaration");
 
   // check if this struct was declared before
-  struct_decl = (type_decl_t *)hashmap_search(ctx->type_decls, spdecl->struct_name, HASHMAP_FIND, NULL);
+  struct_decl = (type_decl_t *)hashmap_get(ctx->type_decls, spdecl->struct_name);
   if (struct_decl && dynarray_length(struct_decl->entries) > 0)
     report_error(ctx, "struct %s is already defined", spdecl->struct_name);
 
@@ -353,7 +353,7 @@ static void capture_var_decl(rcc_ctx_t *ctx,
   var_decl->scope = spdecl->scope;
   var_decl->array_len = dimension > 0 ? dimension : 1;
 
-  hashmap_search(ctx->global_symtab, var_decl->name, HASHMAP_INSERT, var_decl);
+  hashmap_set(ctx->global_symtab, var_decl->name, var_decl);
 }
 
 // appends objects to ctx's global_symtab, func_decls, type_decls
@@ -390,7 +390,7 @@ void capture_declarations(rcc_ctx_t *ctx, Node *node)
       struct_fwd_decl->name = spdecl.struct_name;
       struct_fwd_decl->size_is_ambiguous = true;
 
-      hashmap_search(ctx->type_decls, struct_fwd_decl->name, HASHMAP_INSERT, struct_fwd_decl);
+      hashmap_set(ctx->type_decls, struct_fwd_decl->name, struct_fwd_decl);
       return;
     } else {
       // doesn't make sense to declare primitive type
@@ -403,7 +403,7 @@ void capture_declarations(rcc_ctx_t *ctx, Node *node)
     bool inplace = false;
     type_decl_t *struct_decl = capture_struct_declaration(ctx, &spdecl, &inplace);
     if (!inplace)
-      hashmap_search(ctx->type_decls, struct_decl->name, HASHMAP_INSERT, struct_decl);
+      hashmap_set(ctx->type_decls, struct_decl->name, struct_decl);
 
     // update size and ambiguity flags in all structs (place to future optimizations)
     hashmap_scan *scan = NULL;
@@ -449,7 +449,7 @@ void capture_declarations(rcc_ctx_t *ctx, Node *node)
                                                               spdecl.is_inline,
                                                               spdecl.section_name,
                                                               type_decl);
-      hashmap_search(ctx->func_decls, func_decl->name, HASHMAP_INSERT, func_decl);
+      hashmap_set(ctx->func_decls, func_decl->name, func_decl);
     } else if ((declarator->type == T_EXPRESSION) && (EXPRESSION_KIND(declarator) == PFX_EXPR_ARRAY)) {
       Node *var_id;
       int dimval = capture_array_declaration(ctx, declarator, &var_id);
