@@ -25,7 +25,7 @@
       do {                                                                 \
         EXPR *l = make_node(EXPR, desc->filename, _line, _column);         \
         l->kind = _kind;                                                   \
-        l->is_ref = false;                                                 \
+        l->hdr.is_ref = false;                                             \
         l->left = _left;                                                   \
         l->right = _right;                                                 \
         target = (parse_node *)l;                                          \
@@ -48,7 +48,7 @@
 %token <str> T_ID T_STR
 %token <ival> T_INT
 %token T_DOLLAR T_LPAR T_RPAR T_MINUS T_PLUS T_MUL T_DIV T_COMMA T_COLON T_ORG T_EQU T_END T_DB
-%token T_DM T_DW T_DS T_INCBIN T_INCLUDE T_NOT T_AND T_OR T_NL T_SECTION T_PERCENT T_SHL T_SHR
+%token T_DM T_DW T_DS T_INCBIN T_INCLUDE T_NOT T_INV T_AND T_OR T_NL T_SECTION T_PERCENT T_SHL T_SHR
 %token T_REPT T_ENDR T_PROFILE T_ENDPROFILE T_IF T_ELSE T_ENDIF
 %token T_EQ T_NE T_LT T_LE T_GT T_GE
 
@@ -88,7 +88,7 @@ id
       : T_ID {
         ID *l = make_node(ID, desc->filename, @1.first_line, @1.first_column);
         l->name = $1;
-        l->is_ref = false;
+        l->hdr.is_ref = false;
         $$ = (parse_node *)l;
       }
       ;
@@ -97,7 +97,7 @@ simple_expr
       : id {
         EXPR *l = make_node(EXPR, desc->filename, @1.first_line, @1.first_column);
         l->kind = SIMPLE;
-        l->is_ref = false;
+        l->hdr.is_ref = false;
         l->left = $1;
         l->right = NULL;
         $$ = (parse_node *)l;
@@ -107,7 +107,7 @@ simple_expr
       | dollar { $$ = $1; }
       | T_LPAR expr T_RPAR {
         $$ = $2;
-        ((EXPR *)$$)->is_ref = true;
+        ((EXPR *)$$)->hdr.is_ref = true;
       }
       ;
 
@@ -121,6 +121,9 @@ unary_expr
       }
       | T_NOT unary_expr {
         RULE_EXPRESSION($$, UNARY_NOT, $2, NULL, @1.first_line, @1.first_column);
+      }
+      | T_INV unary_expr {
+        RULE_EXPRESSION($$, UNARY_INV, $2, NULL, @1.first_line, @1.first_column);
       }
       ;
 

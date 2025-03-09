@@ -7,7 +7,7 @@
 #include "common/buffer.h"
 #include "common/hashmap.h"
 
-static char *reserved_ids[] = {
+static char *keywords[] = {
   "A", "B", "C", "D", "E", "H", "L", "F", "I", "R", "BC", "DE", "HL", "AF", "AF'", "SP",
   "IX", "IY", "IXH", "IXL", "IYH", "IYL", "NZ", "Z", "NC", "C", "PO", "PE", "P", "M",
 
@@ -23,10 +23,10 @@ static char *reserved_ids[] = {
   "IF", "ELSE", "ENDIF",
   NULL};
 
-bool is_reserved_ident(const char *id)
+static bool is_keyword(const char *id)
 {
   for (int i = 0;; i++) {
-    char *rsvname = reserved_ids[i];
+    char *rsvname = keywords[i];
     if (rsvname == NULL)
       break;
 
@@ -65,7 +65,7 @@ hashmap *make_symtab(hashmap *defineopts)
 
 parse_node *add_sym_variable_node(compile_ctx_t *ctx, const char *name, parse_node *value)
 {
-  if (is_reserved_ident(name))
+  if (is_keyword(name))
     report_error(ctx, "can't redefine reserved identifier %s", name);
 
   return hashmap_search(ctx->symtab, (void *)name, HASHMAP_INSERT, value);
@@ -75,7 +75,7 @@ parse_node *add_sym_variable_integer(compile_ctx_t *ctx, const char *name, int i
 {
   LITERAL *l = make_node_internal(LITERAL);
   l->kind = INT;
-  l->is_ref = false;
+  l->hdr.is_ref = false;
   l->ival = ival;
 
   return add_sym_variable_node(ctx, name, (parse_node *)l);

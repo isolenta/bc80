@@ -135,7 +135,7 @@ void print_node(parse_node *node) {
     case NODE_LITERAL: {
       LITERAL *l = (LITERAL *)node;
       printf("(LITERAL %s %s ",
-        (l->is_ref ? "ref" : ""),
+        (node->is_ref ? "ref" : ""),
         (l->kind == INT ? "int" : l->kind == STR ? "str" : l->kind == DOLLAR ? "DOLLAR" : "(unknown_lit)"));
       if (l->kind == INT)
         printf("%d", l->ival);
@@ -175,6 +175,9 @@ void print_node(parse_node *node) {
           break;
         case UNARY_MINUS:
           printf("uminus ");
+          break;
+        case UNARY_INV:
+          printf("uinv ");
           break;
         case UNARY_NOT:
           printf("unot ");
@@ -228,12 +231,12 @@ void print_node(parse_node *node) {
           break;
       }
 
-      if (l->is_ref)
+      if (node->is_ref)
         printf("ref ");
 
       print_node(l->left);
       printf(" ");
-      if (!(l->kind == SIMPLE || l->kind == UNARY_NOT || l->kind == UNARY_PLUS || l->kind == UNARY_MINUS))
+      if (!(l->kind == SIMPLE || l->kind == UNARY_NOT || l->kind == UNARY_INV || l->kind == UNARY_PLUS || l->kind == UNARY_MINUS))
         print_node(l->right);
 
       printf(") ");
@@ -242,7 +245,7 @@ void print_node(parse_node *node) {
     }
     case NODE_ID: {
       ID *l = (ID *)node;
-      printf("(ID %s %s) ", (l->is_ref ? "ref" : ""), l->name);
+      printf("(ID %s %s) ", (node->is_ref ? "ref" : ""), l->name);
       break;
     }
     case NODE_LIST: {
@@ -327,7 +330,7 @@ static void node_to_string_recurse(parse_node *node, buffer *buf) {
       LITERAL *l = (LITERAL *)node;
       buffer_append(buf, "LITERAL ");
 
-      if (l->is_ref)
+      if (node->is_ref)
         buffer_append(buf, "(");
 
       if (l->kind == INT)
@@ -337,7 +340,7 @@ static void node_to_string_recurse(parse_node *node, buffer *buf) {
       else if (l->kind == STR)
         buffer_append(buf, "'%s'", l->strval);
 
-      if (l->is_ref)
+      if (node->is_ref)
         buffer_append(buf, ")");
       break;
     }
@@ -368,7 +371,7 @@ static void node_to_string_recurse(parse_node *node, buffer *buf) {
     case NODE_EXPR: {
       EXPR *l = (EXPR *)node;
 
-      if (l->is_ref)
+      if (node->is_ref)
         buffer_append(buf, "(");
 
       switch (l->kind) {
@@ -384,6 +387,10 @@ static void node_to_string_recurse(parse_node *node, buffer *buf) {
           node_to_string_recurse(l->left, buf);
           break;
         case UNARY_NOT:
+          buffer_append(buf, "!");
+          node_to_string_recurse(l->left, buf);
+          break;
+        case UNARY_INV:
           buffer_append(buf, "~");
           node_to_string_recurse(l->left, buf);
           break;
@@ -466,7 +473,7 @@ static void node_to_string_recurse(parse_node *node, buffer *buf) {
           break;
       }
 
-      if (l->is_ref)
+      if (node->is_ref)
         buffer_append(buf, ")");
 
       break;
@@ -474,12 +481,12 @@ static void node_to_string_recurse(parse_node *node, buffer *buf) {
     case NODE_ID: {
       ID *l = (ID *)node;
       buffer_append(buf, "ID ");
-      if (l->is_ref)
+      if (node->is_ref)
         buffer_append(buf, "(");
 
       buffer_append(buf, "%s", l->name);
 
-      if (l->is_ref)
+      if (node->is_ref)
         buffer_append(buf, ")");
       break;
     }

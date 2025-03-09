@@ -37,13 +37,13 @@ make_inherited_expr(EXPR *base, parse_node *newleft, parse_node *newright)
 {
   EXPR *result = make_node_internal(EXPR);
 
-  result->type = base->type;
-  result->line = base->line;
-  result->pos = base->pos;
-  result->fn = base->fn;
-  result->kind = base->kind;
-  result->is_ref = base->is_ref;
+  result->hdr.type = base->hdr.type;
+  result->hdr.line = base->hdr.line;
+  result->hdr.pos = base->hdr.pos;
+  result->hdr.fn = base->hdr.fn;
+  result->hdr.is_ref = base->hdr.is_ref;
 
+  result->kind = base->kind;
   result->left = newleft;
   result->right = newright;
 
@@ -56,7 +56,7 @@ make_int_literal(int value, bool is_ref)
   LITERAL *l = make_node_internal(LITERAL);
 
   l->kind = INT;
-  l->is_ref = false;
+  l->hdr.is_ref = false;
   l->ival = value;
 
   return (parse_node *)l;
@@ -72,12 +72,8 @@ get_int_literal_value(parse_node *l)
 }
 
 // evaluate source expression to its simplest form
-// literal_evals: set to true if any compile-time arithmetics were performed
-parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool *literal_evals)
+parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node)
 {
-  EXPR *expr = (EXPR *)node;
-  parse_node *result, *arg1, *arg2;
-
   if (node->type == NODE_LITERAL)
     return eval_literal(ctx, node);
 
@@ -87,8 +83,8 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool *literal_evals)
     parse_node *nval = hashmap_search(ctx->symtab, id->name, HASHMAP_FIND, NULL);
     if (nval) {
       if (nval->type == NODE_LITERAL)
-        ((LITERAL *)nval)->is_ref = id->is_ref;
-      return expr_eval(ctx, nval, literal_evals);
+        nval->is_ref = id->hdr.is_ref;
+      return expr_eval(ctx, nval);
     } else {
       // There is a chance that it's label name inside REPT block.
       // Try to resolve it as suffixed label
@@ -97,8 +93,8 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool *literal_evals)
         parse_node *nval2 = hashmap_search(ctx->symtab, suffixed_name, HASHMAP_FIND, NULL);
         if (nval2) {
           if (nval2->type == NODE_LITERAL)
-            ((LITERAL *)nval2)->is_ref = id->is_ref;
-          return expr_eval(ctx, nval2, literal_evals);
+            nval2->is_ref = id->hdr.is_ref;
+          return expr_eval(ctx, nval2);
         }
       }
     }
@@ -108,280 +104,134 @@ parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool *literal_evals)
   if (node->type != NODE_EXPR)
     return node;
 
-  // for expressions try to simplify them to literal form,
-  // otherwise return expression copy with evaluated leafs
-  switch (expr->kind) {
-    case SIMPLE:
-      // simple expression: kust copy inner node with preserving is_ref
-      result = expr_eval(ctx, expr->left, literal_evals);
+  EXPR *expr = (EXPR *)node;
+  parse_node *result;
 
-      if (result->type == NODE_LITERAL)
-        ((LITERAL *)result)->is_ref = expr->is_ref;
-      else if (result->type == NODE_ID)
-        ((ID *)result)->is_ref = expr->is_ref;
-      else if (result->type == NODE_EXPR)
-        ((EXPR *)result)->is_ref = expr->is_ref;
-
+  if (expr->kind == SIMPLE) {
+      // simple expression: just use inner node with preserving is_ref
+      result = expr_eval(ctx, expr->left);
+      result->is_ref = expr->hdr.is_ref;
       return result;
+  }
 
-    case UNARY_PLUS:
-      return expr_eval(ctx, expr->left, literal_evals);
+  if (expr->kind == UNARY_PLUS) {
+    // unary plus: just use inner node without preserving is_ref
+    return expr_eval(ctx, expr->left);
+  }
 
+  // for the rest arithmetic expressions try to simplify them to literal form,
+  // otherwise return expression copy with evaluated leafs
+
+  parse_node *arg1 = expr_eval(ctx, expr->left);
+  parse_node *arg2 = NULL;
+
+  if (expr->kind != UNARY_MINUS && expr->kind != UNARY_INV &&  expr->kind != UNARY_NOT)
+    arg2 = expr_eval(ctx, expr->right);
+
+  if (expr->kind == BINARY_DIV && IS_INT_LITERAL(arg2) &&
+    get_int_literal_value(arg2) == 0)
+  {
+    report_error(ctx, "division by zero");
+  }
+
+  bool can_eval_to_literal = false;
+  if (expr->kind == UNARY_MINUS || expr->kind == UNARY_INV || expr->kind == UNARY_NOT)
+    can_eval_to_literal = IS_INT_LITERAL(arg1);
+  else
+    can_eval_to_literal = IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2);
+
+  if (!can_eval_to_literal)
+    return make_inherited_expr(expr, arg1, arg2);
+
+  // now we sure that we can to evaluate expression to single literal
+  ctx->was_literal_evals = true;
+
+  switch (expr->kind) {
     case UNARY_MINUS:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
+      return make_int_literal(-1 * get_int_literal_value(arg1), expr->hdr.is_ref);
 
-      if (IS_INT_LITERAL(arg1)) {
-        result = make_int_literal(-1 * get_int_literal_value(arg1), expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, NULL);
+    case UNARY_INV:
+      return make_int_literal(~get_int_literal_value(arg1), expr->hdr.is_ref);
 
     case UNARY_NOT:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-
-      if (IS_INT_LITERAL(arg1)) {
-        result = make_int_literal(~get_int_literal_value(arg1), expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, NULL);
+      return make_int_literal(!get_int_literal_value(arg1), expr->hdr.is_ref);
 
     case BINARY_PLUS:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) + get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) + get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case BINARY_MINUS:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) - get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) - get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case BINARY_MUL:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) * get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) * get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case BINARY_DIV:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (get_int_literal_value(arg2) == 0)
-        report_error(ctx, "division by zero");
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) / get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) / get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case BINARY_AND:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) & get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) & get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case BINARY_OR:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) | get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) | get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case BINARY_MOD:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) % get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) % get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case BINARY_SHL:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) << get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) << get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case BINARY_SHR:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) >> get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) >> get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case COND_EQ:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) == get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) == get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case COND_NE:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) != get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) != get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case COND_LT:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) < get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) < get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case COND_LE:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) <= get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) <= get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case COND_GT:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) > get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) > get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     case COND_GE:
-      arg1 = expr_eval(ctx, expr->left, literal_evals);
-      arg2 = expr_eval(ctx, expr->right, literal_evals);
-
-      if (IS_INT_LITERAL(arg1) && IS_INT_LITERAL(arg2)) {
-        result = make_int_literal(
-          get_int_literal_value(arg1) >= get_int_literal_value(arg2),
-          expr->is_ref);
-        if (literal_evals)
-          *literal_evals = true;
-        return result;
-      }
-
-      return make_inherited_expr(expr, arg1, arg2);
+      return make_int_literal(
+        get_int_literal_value(arg1) >= get_int_literal_value(arg2),
+        expr->hdr.is_ref);
 
     default:
-      // forgot to add expr kind to switch?
-      abort();
       break;
   }
 

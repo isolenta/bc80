@@ -30,20 +30,17 @@ typedef enum parse_type
   NODE_ENDIF,
 } parse_type;
 
-typedef struct {
+typedef struct parse_node {
   parse_type type;
   uint32_t line;
   uint32_t pos;
   char *fn;
+  bool is_ref;
   char data[0];
 } parse_node;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
-  bool is_ref;
+  parse_node hdr;
   char *name;
 } ID;
 
@@ -56,27 +53,18 @@ typedef enum
 } defkind;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
   dynarray *list;
 } LIST;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
   defkind kind;
   LIST *values;
 } DEF;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
 } END;
 
 typedef enum
@@ -87,12 +75,8 @@ typedef enum
 } litkind;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
   litkind kind;
-  bool is_ref;
   char *strval;
   int ival;
 } LITERAL;
@@ -102,6 +86,7 @@ typedef enum
   SIMPLE = 0,
   UNARY_PLUS,
   UNARY_MINUS,
+  UNARY_INV,
   UNARY_NOT,
   BINARY_PLUS,
   BINARY_MINUS,
@@ -121,118 +106,75 @@ typedef enum
 } exprkind;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
   exprkind kind;
-  bool is_ref;
   parse_node *left;
   parse_node *right;
 } EXPR;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
   parse_node *value;
 } ORG;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
   LITERAL *filename;
 } INCBIN;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
   ID *name;
   EXPR *value;
 } EQU;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
   EXPR *count_expr;
   ID *var;
 } REPT;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
 } ENDR;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
   ID *name;
 } LABEL;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
   ID *name;
   LIST *args; // array of expressions
 } INSTR;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
   LITERAL *name;
   LIST *params;
 } SECTION;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
   LITERAL *name;
 } PROFILE;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
 } ENDPROFILE;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
   EXPR *condition;
 } IF;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
 } ELSE;
 
 typedef struct {
-  parse_type type;
-  uint32_t line;
-  uint32_t pos;
-  const char *fn;
+  parse_node hdr;
 } ENDIF;
 
 extern parse_node *new_node_macro_holder;
@@ -241,8 +183,8 @@ extern parse_node *new_node_macro_holder;
 ( \
   new_node_macro_holder = (parse_node *)xmalloc2(size, #t), \
   new_node_macro_holder->type = (t),                        \
-  new_node_macro_holder->line = (line_)+1,                   \
-  new_node_macro_holder->pos = (pos_),                       \
+  new_node_macro_holder->line = (line_)+1,                  \
+  new_node_macro_holder->pos = (pos_),                      \
   new_node_macro_holder->fn = (fn_),                        \
   new_node_macro_holder \
 )
@@ -260,7 +202,7 @@ struct as_scanner_state {
 };
 
 #define IS_INT_LITERAL(node) \
-    ((node->type == NODE_LITERAL) && (((LITERAL *)node)->kind == INT))
+    ((((parse_node *)node)->type == NODE_LITERAL) && (((LITERAL *)node)->kind == INT))
 
 extern int parse_source(struct libasm_as_desc_t *desc, dynarray **statements);
 extern int parse_include(struct libasm_as_desc_t *desc, dynarray **statements, char *filename);

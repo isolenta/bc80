@@ -4,6 +4,7 @@
 
 #include "asm/compile.h"
 #include "asm/render.h"
+#include "asm/symtab.h"
 #include "common/buffer.h"
 #include "common/hashmap.h"
 
@@ -50,7 +51,7 @@ static void profile_start(compile_ctx_t *ctx, char *name)
 
 static void compile_equ(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, EQU *equ)
 {
-  add_sym_variable_node(ctx, equ->name->name, expr_eval(ctx, (parse_node *)equ->value, NULL));
+  add_sym_variable_node(ctx, equ->name->name, expr_eval(ctx, (parse_node *)equ->value));
 }
 
 static void compile_section(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, SECTION *section)
@@ -83,10 +84,10 @@ static void compile_section(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, S
   if (section->params) {
     foreach(dc, section->params->list) {
       EQU *equ = (EQU *)dfirst(dc);
-      assert(equ->type == NODE_EQU);
+      assert(equ->hdr.type == NODE_EQU);
 
       if (strcasecmp(equ->name->name, "base") == 0) {
-        LITERAL *base_value = (LITERAL *)expr_eval(ctx, (parse_node *)equ->value, NULL);
+        LITERAL *base_value = (LITERAL *)expr_eval(ctx, (parse_node *)equ->value);
         if (!IS_INT_LITERAL(base_value))
           report_error(ctx, "can't evaluate 'base' parameter as integer value");
 
@@ -94,7 +95,7 @@ static void compile_section(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, S
         if (address < 0 || address > 0xffff)
           report_error(ctx, "'base' parameter value %d is out of bounds (0..65536)", address);
       } else if (strcasecmp(equ->name->name, "fill") == 0) {
-        LITERAL *fill_value = (LITERAL *)expr_eval(ctx, (parse_node *)equ->value, NULL);
+        LITERAL *fill_value = (LITERAL *)expr_eval(ctx, (parse_node *)equ->value);
         if (!IS_INT_LITERAL(fill_value))
           report_error(ctx, "can't evaluate 'fill' parameter as integer value");
 
@@ -125,7 +126,7 @@ static void compile_section(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, S
 
 static void compile_org(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, ORG *org)
 {
-  parse_node *org_val = expr_eval(ctx, org->value, NULL);
+  parse_node *org_val = expr_eval(ctx, org->value);
 
   if (org_val->type == NODE_LITERAL) {
     LITERAL *l = (LITERAL *)org_val;
@@ -165,18 +166,18 @@ static void compile_def(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, DEF *
     if (dynarray_length(def->values->list) == 1) {
       // if argument 2 is omitted let's fill block with zeros
       filler = (parse_node *)make_node_internal(LITERAL);
-      ((LITERAL *)filler)->is_ref = false;
+      filler->is_ref = false;
       ((LITERAL *)filler)->kind = INT;
       ((LITERAL *)filler)->ival = 0;
     } else if (dynarray_length(def->values->list) == 2) {
       // filler value can be evaluated here or later
-      filler = expr_eval(ctx, dsecond(def->values->list), NULL);
+      filler = expr_eval(ctx, dsecond(def->values->list));
     } else {
       report_error(ctx, "DEFS must contain 1 or 2 arguments");
     }
 
     // size of block must be explicit integer value
-    nrep = expr_eval(ctx, dinitial(def->values->list), NULL);
+    nrep = expr_eval(ctx, dinitial(def->values->list));
     if ((nrep->type != NODE_LITERAL) || (((LITERAL *)nrep)->kind != INT))
       report_error(ctx, "argument 1 of DEFS must explicit integer literal value");
 
@@ -205,7 +206,7 @@ static void compile_def(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, DEF *
 
     foreach(def_dc, def->values->list) {
       parse_node *def_elem = (parse_node *)dfirst(def_dc);
-      def_elem = expr_eval(ctx, def_elem, NULL);
+      def_elem = expr_eval(ctx, def_elem);
 
       LITERAL *l;
 
@@ -215,7 +216,7 @@ static void compile_def(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, DEF *
         l = make_node_internal(LITERAL);
         l->kind = INT;
         l->ival = 0;
-        l->is_ref = false;
+        l->hdr.is_ref = false;
 
         section_ctx_t *section = get_current_section(ctx);
 
@@ -318,18 +319,19 @@ static void compile_instr(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, INS
   // evaluate all instruction arguments
   if (instr->args && instr->args->list) {
     foreach(dc, instr->args->list) {
-      bool literal_evals = false;
       bool is_ref = false;
 
-      parse_node *arg = expr_eval(ctx, dfirst(dc), &literal_evals);
+      ctx->was_literal_evals = false;
+
+      parse_node *arg = expr_eval(ctx, dfirst(dc));
       arglist = dynarray_append_ptr(arglist, arg);
 
       if (arg->type == NODE_LITERAL) {
         LITERAL *arg_lit = (LITERAL *)arg;
-        is_ref = arg_lit->is_ref;
+        is_ref = arg_lit->hdr.is_ref;
       }
 
-      if (is_ref && literal_evals)
+      if (is_ref && ctx->was_literal_evals)
         report_warning(ctx, "argument with external parentheses is interpreted as an address");
     }
   }
@@ -339,7 +341,7 @@ static void compile_instr(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, INS
 
 static void compile_rept(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, REPT *rept, int loop_iter)
 {
-  LITERAL *count_value = (LITERAL *)expr_eval(ctx, (parse_node *)rept->count_expr, NULL);
+  LITERAL *count_value = (LITERAL *)expr_eval(ctx, (parse_node *)rept->count_expr);
   if (!IS_INT_LITERAL(count_value))
     report_error(ctx, "can't evaluate REPT argument as integer value");
 
@@ -348,7 +350,7 @@ static void compile_rept(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, REPT
   rept_ctx->counter = 0;
   rept_ctx->start_iter = loop_iter;
   rept_ctx->varname = NULL;
-  rept_ctx->rept_node_line = rept->line;
+  rept_ctx->rept_node_line = rept->hdr.line;
 
   if (rept->var) {
     void *existing_var = get_sym_variable(ctx, rept->var->name, true);
@@ -425,7 +427,7 @@ static void compile_endprofile(compile_ctx_t *ctx, struct libasm_as_desc_t *desc
 
 static void compile_if(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, IF *node_if)
 {
-  LITERAL *condition = (LITERAL *)expr_eval(ctx, (parse_node *)node_if->condition, NULL);
+  LITERAL *condition = (LITERAL *)expr_eval(ctx, (parse_node *)node_if->condition);
   if (!IS_INT_LITERAL(condition))
     report_error(ctx, "can't evaluate IF condition");
 
@@ -433,7 +435,7 @@ static void compile_if(compile_ctx_t *ctx, struct libasm_as_desc_t *desc, IF *no
   condition_ctx->expr = node_if->condition;
   condition_ctx->cond_value = (bool)(condition->ival);
   condition_ctx->inverse = false;
-  condition_ctx->if_node_line = node_if->line;
+  condition_ctx->if_node_line = node_if->hdr.line;
 
   ctx->conditions = dynarray_append_ptr(ctx->conditions, condition_ctx);
 }
@@ -609,7 +611,7 @@ int compile(struct libasm_as_desc_t *desc, dynarray *parse)
     patch_t *patch = (patch_t *)dfirst(dc);
 
     compile_ctx.lookup_rept_suffix = patch->rept_suffix;
-    parse_node *resolved_node = expr_eval(&compile_ctx, patch->node, NULL);
+    parse_node *resolved_node = expr_eval(&compile_ctx, patch->node);
     compile_ctx.lookup_rept_suffix = NULL;
 
     if (resolved_node->type != NODE_LITERAL) {

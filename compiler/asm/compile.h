@@ -39,7 +39,7 @@ typedef struct {
   int if_node_line;
 } condition_ctx_t;
 
-typedef struct {
+typedef struct compile_ctx_t {
   parse_node *node;
   dynarray *patches;
   hashmap *symtab;
@@ -55,10 +55,15 @@ typedef struct {
   warning_callback_type warning_cb;
   jmp_buf *error_jmp_env;
 
+  // stacked contexts for rept..endr statements
   dynarray *repts;
   char *lookup_rept_suffix;
 
+  // stacked contexts for if..else..endif statements
   dynarray *conditions;
+
+  // expr_eval() will set it to true if any compile-time arithmetics were performed
+  bool was_literal_evals;
 
   bool in_profile;
   profile_data_t current_profile;
@@ -97,7 +102,7 @@ typedef struct {
       fmt, ## __VA_ARGS__); \
   } while (0)
 
-extern parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node, bool *literal_evals);
+extern parse_node *expr_eval(compile_ctx_t *ctx, parse_node *node);
 extern int compile(struct libasm_as_desc_t *desc, dynarray *parse);
 extern void compile_instruction_impl(compile_ctx_t *ctx, char *name, dynarray *args);
 extern void register_fwd_lookup(compile_ctx_t *ctx,
@@ -106,11 +111,3 @@ extern void register_fwd_lookup(compile_ctx_t *ctx,
                           int nbytes,
                           bool relative,
                           uint32_t instr_pc);
-
-extern hashmap *make_symtab(hashmap *defineopts);
-extern parse_node *add_sym_variable_node(compile_ctx_t *ctx, const char *name, parse_node *value);
-extern parse_node *add_sym_variable_integer(compile_ctx_t *ctx, const char *name, int ival);
-extern parse_node *get_sym_variable(compile_ctx_t *ctx, const char *name, bool missing_ok);
-extern parse_node *remove_sym_variable(compile_ctx_t *ctx, const char *name);
-
-extern bool is_reserved_ident(const char *id);

@@ -148,6 +148,7 @@ void render_from_file(compile_ctx_t *ctx, char *filename, dynarray *includeopts)
   size_t ret = fread(buf, size, 1, fp);
   if (ret != 1)
     report_error(ctx, "unable to read %ld bytes from %s", size, filename);
+  fclose(fp);
 
   buffer_append_binary(section->content, buf, size);
   xfree(buf);

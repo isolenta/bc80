@@ -152,6 +152,7 @@ intnum  ({decnum}|{hexnum}|{binnum})
 "&"    {   ADVANCE_POS; return T_AND; }
 "|"    {   ADVANCE_POS; return T_OR; }
 "!"    {   ADVANCE_POS; return T_NOT; }
+"~"    {   ADVANCE_POS; return T_INV; }
 ","    {   ADVANCE_POS; return T_COMMA; }
 ":"    {   ADVANCE_POS; return T_COLON; }
 "$"    {   ADVANCE_POS; return T_DOLLAR; }

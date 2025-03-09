@@ -80,9 +80,11 @@ static char *MnemonicStrings[] = {
   GEN_INSTR_LIST(FN_STRING)
 };
 
-#define NARGS_0 0x1
-#define NARGS_1 0x2
-#define NARGS_2 0x3
+enum {
+  NARGS_0 = 0x1,
+  NARGS_1 = 0x2,
+  NARGS_2 = 0x4,
+};
 
 static int NUM_ARGS[] = {
   NARGS_2,            // ADC
@@ -183,9 +185,3 @@ _Static_assert((sizeof(NUM_ARGS) / sizeof(NUM_ARGS[0])) == MAX_MNEMONIC_ID, "NUM
 #define COND_PE   0x5
 #define COND_P    0x6
 #define COND_M    0x7
-
-static char *RESERVED_IDENTS[] = {
-  "A", "B", "C", "D", "E", "H", "L", "F", "I", "R",
-  "BC", "DE", "HL", "AF", "AF'", "SP",
-  "IX", "IY", "IXH", "IXL", "IYH", "IYL",
-  "NZ", "Z", "NC", "C", "PO", "PE", "P", "M", NULL};
