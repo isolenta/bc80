@@ -1,6 +1,0 @@
-pop bc
-pop de
-pop hl
-pop af
-pop ix
-pop iy

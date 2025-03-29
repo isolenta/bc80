@@ -1,0 +1,10 @@
+bc80asm
+bc80dasm
+test.log
+*.asm
+!asm/tests/*.asm
+README.md
+bin/*
+_build/*
+misc
+_old
